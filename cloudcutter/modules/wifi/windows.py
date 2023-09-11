@@ -292,6 +292,8 @@ class WifiWindows(WifiCommon):
             self.command("netsh", "wlan", "start", "hostednetwork")
             await future
 
+        await self.get_access_point_clients(interface)
+
     @module_thread
     async def stop_access_point(
         self,

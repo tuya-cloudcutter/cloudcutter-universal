@@ -38,8 +38,9 @@ class DhcpModule(ModuleBase):
     async def run(self) -> None:
         if not self.ipconfig:
             raise RuntimeError("Server not configured")
-        self.info(f"Starting DHCP server on {self.ipconfig.address}")
+        self.info(f"Starting DHCP server on {self.ipconfig.address}:67")
         self.sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
+        self.sock.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
         self.sock.bind((str(self.ipconfig.address), 67))
         while self.should_run and self.sock is not None:
             self._process_request()
@@ -97,33 +98,26 @@ class DhcpModule(ModuleBase):
         else:
             action = "ACK-ing"
             packet[DhcpOptionType.MESSAGE_TYPE] = DhcpMessageType.ACK
-        packet[DhcpOptionType.SERVER_IDENTIFIER] = self.ipconfig.address
         packet[DhcpOptionType.SUBNET_MASK] = self.ipconfig.netmask
-        if self.ipconfig.gateway:
-            packet[DhcpOptionType.ROUTER] = self.ipconfig.gateway
+        packet[DhcpOptionType.ROUTER] = self.ipconfig.address
         if self.dns:
             packet[DhcpOptionType.DNS_SERVERS] = self.dns
             packet[DhcpOptionType.DOMAIN_NAME] = "local"
         packet[DhcpOptionType.INTERFACE_MTU_SIZE] = 1500
         packet[DhcpOptionType.BROADCAST_ADDRESS] = network.broadcast_address
+        packet[DhcpOptionType.NETBIOS_NODE_TYPE] = 8
         packet[DhcpOptionType.IP_ADDRESS_LEASE_TIME] = timedelta(days=7)
+        packet[DhcpOptionType.SERVER_IDENTIFIER] = self.ipconfig.address
         packet[DhcpOptionType.RENEW_TIME_VALUE] = timedelta(hours=12)
         packet[DhcpOptionType.REBINDING_TIME_VALUE] = timedelta(days=7)
 
-        for option in list(packet.options):
-            if option.option == DhcpOptionType.END:
+        for option in param_list:
+            if option in packet:
                 continue
-            if option.option == DhcpOptionType.MESSAGE_TYPE:
-                continue
-            if not param_list or option.option in param_list:
-                continue
-            packet.options.remove(option)
+            self.warning(f"Requested DHCP option {option} not populated")
 
         self.info(f"{action} {address} to {packet.client_mac_address} ({host_name})")
-        sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
-        sock.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-        sock.bind((str(self.ipconfig.address), 0))
-        sock.sendto(packet.pack(), ("255.255.255.255", 68))
+        self.sock.sendto(packet.pack(), ("255.255.255.255", 68))
 
         if message_type != DhcpMessageType.DISCOVER:
             DhcpLeaseEvent(

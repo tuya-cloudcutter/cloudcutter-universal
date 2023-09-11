@@ -10,6 +10,7 @@ from datastruct import DataStruct, Endianness, datastruct
 from datastruct.adapters.network import ipv4_field, mac_field
 from datastruct.adapters.time import timedelta_field
 from datastruct.fields import (
+    align,
     built,
     cond,
     const,
@@ -46,6 +47,7 @@ class DhcpOption(DataStruct):
             CLIENT_IDENTIFIER=(DhcpClientIdentifier, subfield()),
             MAXIMUM_MESSAGE_SIZE=(int, field("H")),
             INTERFACE_MTU_SIZE=(int, field("H")),
+            NETBIOS_NODE_TYPE=(int, field("B")),
             # time values
             IP_ADDRESS_LEASE_TIME=(timedelta, timedelta_field()),
             RENEW_TIME_VALUE=(timedelta, timedelta_field()),
@@ -94,6 +96,7 @@ class DhcpPacket(DataStruct):
         last=lambda ctx: ctx.P.item.option == 255,
         default_factory=lambda: [DhcpOption(DhcpOptionType.END)],
     )(subfield())
+    _2: ... = align(16)
 
     def __contains__(self, type: DhcpOptionType) -> bool:
         for option in self.options:
