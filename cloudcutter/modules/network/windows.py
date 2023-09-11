@@ -1,5 +1,7 @@
 #  Copyright (c) Kuba Szczodrzyński 2023-9-9.
 
+import asyncio
+
 from win32wifi import Win32Wifi
 
 from cloudcutter.modules.base import module_thread
@@ -52,6 +54,7 @@ class NetworkWindows(NetworkCommon):
             raise Exception("Interface not found")
 
         if not ipconfig:
+            self.info(f"Enabling DHCP address on '{interface.title}'")
             self.command(
                 "netsh",
                 "interface",
@@ -64,6 +67,7 @@ class NetworkWindows(NetworkCommon):
             )
             return
 
+        self.info(f"Setting static IP {ipconfig.address} on '{interface.title}'")
         self.command(
             "netsh",
             "interface",
@@ -77,3 +81,17 @@ class NetworkWindows(NetworkCommon):
             f"gateway={ipconfig.gateway}".lower(),
             "store=active",
         )
+
+        while True:
+            netsh = self.command(
+                "netsh",
+                "interface",
+                "ipv4",
+                "show",
+                "addresses",
+                f"name={index}",
+            )
+            if str(ipconfig.address).encode() in netsh:
+                break
+            self.debug("Waiting for IP configuration to apply")
+            await asyncio.sleep(0.5)

@@ -17,10 +17,11 @@ class ModuleBase(EventMixin):
         return sys.platform == "linux"
 
     @staticmethod
-    def command(*args: str) -> None:
+    def command(*args: str) -> bytes:
         p = Popen(args=[*args], stdout=PIPE, stderr=PIPE)
         stdout, stderr = p.communicate()
         if p.wait() != 0:
             raise RuntimeError(
                 f"Command failed ({p.returncode}): {(stdout or stderr).decode()}"
             )
+        return stdout
