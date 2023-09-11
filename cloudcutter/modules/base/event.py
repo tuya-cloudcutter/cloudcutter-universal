@@ -16,6 +16,7 @@ from .utils import EventHandler, T, make_attr_dict
 class EventMixin(FutureMixin, LoggerMixin):
     queue: Queue[MethodCallEvent | BaseEvent | Future]
     thread: Thread | None = None
+    should_run: bool = False
     in_event_queue: bool = False
 
     def __init__(self):
@@ -23,6 +24,7 @@ class EventMixin(FutureMixin, LoggerMixin):
         self.queue = Queue()
 
     def entrypoint(self, future: Future = None) -> None:
+        self.should_run = True
         thread = current_thread()
         thread.name = thread.name.replace("(entrypoint)", "").strip()
         try:
@@ -34,8 +36,9 @@ class EventMixin(FutureMixin, LoggerMixin):
         try:
             loop.run_until_complete(self.run())
         except Exception as e:
-            self.exception("Thread raised exception", exc_info=e)
-            traceback.print_exc()
+            if self.should_run:
+                self.exception("Thread raised exception", exc_info=e)
+                traceback.print_exc()
 
         self.verbose("Finished run()")
         self.thread = None  # clear thread created in start()
@@ -50,12 +53,14 @@ class EventMixin(FutureMixin, LoggerMixin):
         self.thread = Thread(
             target=self.entrypoint,
             args=[future],
+            daemon=True,
         )
         self.thread.start()
         await future  # wait until it starts
 
     async def stop(self) -> None:
         self.verbose(f"Stopping (request)")
+        self.should_run = False
         await self.event_loop_thread_stop()
         if self.thread and self.thread is not current_thread():
             self.thread.join()
