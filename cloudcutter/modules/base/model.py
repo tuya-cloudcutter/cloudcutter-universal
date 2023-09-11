@@ -58,3 +58,8 @@ class MethodCallEvent:
     func: Callable[..., Awaitable[Any]]
     args: tuple
     kwargs: dict
+
+
+@dataclass
+class CoroutineCallEvent:
+    coro: Awaitable[Any]

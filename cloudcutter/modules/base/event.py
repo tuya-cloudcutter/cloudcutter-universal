@@ -5,16 +5,16 @@ import traceback
 from asyncio import AbstractEventLoop, Future
 from queue import Queue
 from threading import Thread, current_thread
-from typing import Any, Generator
+from typing import Any, Awaitable, Generator
 
 from .future import FutureMixin
 from .logger import LoggerMixin
-from .model import BaseEvent, MethodCallEvent
+from .model import BaseEvent, CoroutineCallEvent, MethodCallEvent
 from .utils import EventHandler, T, make_attr_dict
 
 
 class EventMixin(FutureMixin, LoggerMixin):
-    queue: Queue[MethodCallEvent | BaseEvent | Future]
+    queue: Queue[MethodCallEvent | CoroutineCallEvent | BaseEvent | Future]
     thread: Thread | None = None
     should_run: bool = False
     in_event_queue: bool = False
@@ -85,6 +85,8 @@ class EventMixin(FutureMixin, LoggerMixin):
                 case MethodCallEvent(future, func, args, kwargs):
                     result = await func(self, *args, **kwargs)
                     self.resolve_future(future, result)
+                case CoroutineCallEvent(coro):
+                    await coro
                 case BaseEvent():
                     for func, obj in self._iter_event_handlers():
                         # dispatch to instance methods
@@ -138,6 +140,9 @@ class EventMixin(FutureMixin, LoggerMixin):
                 make_attr_dict(cls, "__subscribers__").pop(self, None)
             except KeyError:
                 pass
+
+    def call_coroutine(self, coro: Awaitable[Any]) -> None:
+        self.queue.put(CoroutineCallEvent(coro))
 
 
 def subscribe(obj: type | object):
