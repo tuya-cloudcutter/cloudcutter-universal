@@ -1,5 +1,7 @@
 #  Copyright (c) Kuba Szczodrzyński 2023-9-9.
 
+from macaddress import MAC
+
 from cloudcutter.modules.base import ModuleBase
 from cloudcutter.types import NetworkInterface, WifiNetwork
 
@@ -47,4 +49,10 @@ class WifiCommon(ModuleBase):
         self,
         interface: NetworkInterface,
     ) -> bool:
+        raise NotImplementedError()
+
+    async def get_access_point_clients(
+        self,
+        interface: NetworkInterface,
+    ) -> set[MAC]:
         raise NotImplementedError()

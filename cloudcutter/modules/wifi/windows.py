@@ -3,6 +3,7 @@
 import asyncio
 from ctypes.wintypes import LPCWSTR
 
+from macaddress import MAC
 from win32wifi import Win32NativeWifiApi, Win32Wifi
 from win32wifi.Win32NativeWifiApi import (
     WLAN_HOSTED_NETWORK_NOTIFICATION_CODE_ENUM as HNET,
@@ -27,6 +28,8 @@ from cloudcutter.utils.windows.wlanhosted import (
 
 from .common import WifiCommon
 from .events import (
+    WifiAPClientConnectedEvent,
+    WifiAPClientDisconnectedEvent,
     WifiAPStartedEvent,
     WifiAPStoppedEvent,
     WifiConnectedEvent,
@@ -61,56 +64,10 @@ def iface_by_guid(guid: str) -> WirelessInterface:
     raise ValueError(f"Interface with GUID {guid} wasn't found")
 
 
-def on_wlan_notification(event: WlanEvent) -> None:
-    code = event.notificationCode
-    guid = str(event.interfaceGuid)
-    data = event.data
-    match code:
-        case ACM.wlan_notification_acm_scan_complete.name:
-            networks = []
-            iface = iface_by_guid(guid)
-            for network in Win32Wifi.getWirelessAvailableNetworkList(iface):
-                if network.auth not in DOT11_AUTH_MAP:
-                    continue
-                if network.cipher not in DOT11_CIPHER_MAP:
-                    continue
-                networks.append(
-                    WifiNetwork(
-                        ssid=network.ssid.decode(),
-                        password=None,
-                        auth=DOT11_AUTH_MAP[network.auth],
-                        cipher=DOT11_CIPHER_MAP[network.cipher],
-                        rssi=network.signal_quality / 2 - 100,
-                        ad_hoc=network.bss_type == "dot11_BSS_type_independent",
-                    )
-                )
-            WifiScanCompleteEvent(networks=networks).broadcast()
-
-        case ACM.wlan_notification_acm_connection_complete.name:
-            data: ACMConnectionNotificationData
-            WifiConnectedEvent(ssid=data.ssid.decode()).broadcast()
-
-        case ACM.wlan_notification_acm_disconnected.name:
-            data: ACMConnectionNotificationData
-            WifiDisconnectedEvent(ssid=data.ssid.decode()).broadcast()
-
-        case HNET.wlan_hosted_network_state_change.name:
-            status = wlanapi.WlanHostedNetworkQueryStatus()
-            match status.state:
-                case WlanHostedNetworkStatus.State.UNAVAILABLE:
-                    pass
-                case WlanHostedNetworkStatus.State.IDLE:
-                    WifiAPStoppedEvent().broadcast()
-                case WlanHostedNetworkStatus.State.ACTIVE:
-                    WifiAPStartedEvent().broadcast()
-
-        case _ if code not in (e.name for e in MSM):
-            WifiRawEvent(code=code, data=data).broadcast()
-
-
 class WifiWindows(WifiCommon):
     notification: Win32Wifi.NotificationObject | None = None
     dpapi: Dpapi | None = None
+    ap_clients: set[MAC] = None
 
     async def start(self) -> None:
         await super().start()
@@ -118,6 +75,7 @@ class WifiWindows(WifiCommon):
         if self.dpapi is None:
             self.dpapi = Dpapi()
             self.dpapi.load_credentials()
+        self.ap_clients = set()
 
     async def stop(self) -> None:
         self._unregister()
@@ -130,7 +88,7 @@ class WifiWindows(WifiCommon):
         except RuntimeError:
             pass
         if self.notification is None:
-            self.notification = Win32Wifi.registerNotification(on_wlan_notification)
+            self.notification = Win32Wifi.registerNotification(self.on_notification)
 
     def _unregister(self, stop_wlansvc: bool = False) -> None:
         if self.notification is not None:
@@ -139,6 +97,55 @@ class WifiWindows(WifiCommon):
         if stop_wlansvc:
             self.command("net", "stop", "Wlansvc")
             self.info("Stopped Wlansvc")
+
+    def on_notification(self, event: WlanEvent) -> None:
+        code = event.notificationCode
+        guid = str(event.interfaceGuid)
+        data = event.data
+        match code:
+            case ACM.wlan_notification_acm_scan_complete.name:
+                networks = []
+                iface = iface_by_guid(guid)
+                for network in Win32Wifi.getWirelessAvailableNetworkList(iface):
+                    if network.auth not in DOT11_AUTH_MAP:
+                        continue
+                    if network.cipher not in DOT11_CIPHER_MAP:
+                        continue
+                    networks.append(
+                        WifiNetwork(
+                            ssid=network.ssid.decode(),
+                            password=None,
+                            auth=DOT11_AUTH_MAP[network.auth],
+                            cipher=DOT11_CIPHER_MAP[network.cipher],
+                            rssi=network.signal_quality / 2 - 100,
+                            ad_hoc=network.bss_type == "dot11_BSS_type_independent",
+                        )
+                    )
+                WifiScanCompleteEvent(networks=networks).broadcast()
+
+            case ACM.wlan_notification_acm_connection_complete.name:
+                data: ACMConnectionNotificationData
+                WifiConnectedEvent(ssid=data.ssid.decode()).broadcast()
+
+            case ACM.wlan_notification_acm_disconnected.name:
+                data: ACMConnectionNotificationData
+                WifiDisconnectedEvent(ssid=data.ssid.decode()).broadcast()
+
+            case HNET.wlan_hosted_network_state_change.name:
+                status = wlanapi.WlanHostedNetworkQueryStatus()
+                match status.state:
+                    case WlanHostedNetworkStatus.State.UNAVAILABLE:
+                        pass
+                    case WlanHostedNetworkStatus.State.IDLE:
+                        WifiAPStoppedEvent().broadcast()
+                    case WlanHostedNetworkStatus.State.ACTIVE:
+                        WifiAPStartedEvent().broadcast()
+
+            case HNET.wlan_hosted_network_peer_state_change.name:
+                self.call_coroutine(self.get_access_point_clients(interface=None))
+
+            case _ if code not in (e.name for e in MSM):
+                WifiRawEvent(code=code, data=data).broadcast()
 
     @module_thread
     async def scan_networks(
@@ -230,6 +237,7 @@ class WifiWindows(WifiCommon):
         interface: NetworkInterface,
         network: WifiNetwork,
     ) -> None:
+        interface.ensure_wifi_ap()
         config_changed = False
 
         self.info("Checking Hosted Network configuration")
@@ -289,6 +297,7 @@ class WifiWindows(WifiCommon):
         self,
         interface: NetworkInterface,
     ) -> None:
+        interface.ensure_wifi_ap()
         if await self.get_access_point_state(interface):
             self.info("Stopping Hosted Network")
             future = WifiAPStoppedEvent.any()
@@ -300,5 +309,22 @@ class WifiWindows(WifiCommon):
         self,
         interface: NetworkInterface,
     ) -> bool:
+        interface.ensure_wifi_ap()
         status = wlanapi.WlanHostedNetworkQueryStatus()
         return status.state == WlanHostedNetworkStatus.State.ACTIVE
+
+    @module_thread
+    async def get_access_point_clients(
+        self,
+        interface: NetworkInterface | None,
+    ) -> set[MAC]:
+        clients = set()
+        status = wlanapi.WlanHostedNetworkQueryStatus()
+        for peer in status.peer_list:
+            clients.add(peer.mac_address)
+        for client in self.ap_clients - clients:
+            WifiAPClientDisconnectedEvent(client=client).broadcast()
+        for client in clients - self.ap_clients:
+            WifiAPClientConnectedEvent(client=client).broadcast()
+        self.ap_clients = set(clients)
+        return clients

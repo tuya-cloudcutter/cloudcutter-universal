@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+from macaddress import MAC
+
 from cloudcutter.modules.base import BaseEvent
 from cloudcutter.types import WifiNetwork
 
@@ -35,3 +37,13 @@ class WifiAPStartedEvent(BaseEvent):
 @dataclass
 class WifiAPStoppedEvent(BaseEvent):
     pass
+
+
+@dataclass
+class WifiAPClientConnectedEvent(BaseEvent):
+    client: MAC
+
+
+@dataclass
+class WifiAPClientDisconnectedEvent(BaseEvent):
+    client: MAC
