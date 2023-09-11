@@ -9,18 +9,10 @@ from uuid import UUID
 
 from Crypto.Cipher import AES
 from datastruct import DataStruct, datastruct
-from datastruct.fields import (
-    adapter,
-    built,
-    const,
-    eval_into,
-    field,
-    padding,
-    subfield,
-    virtual,
-)
+from datastruct.adapters.misc import utf16le_field, uuid_le_field
+from datastruct.adapters.time import filetime_field
+from datastruct.fields import built, const, eval_into, field, padding, subfield, virtual
 
-from .adapter import FiletimeAdapter, GUIDAdapter, UTF16LEAdapter
 from .pbkdf2 import pbkdf2
 from .types import IV_LEN, KEY_LEN, DpapiAlgoCrypt, DpapiAlgoHash
 
@@ -73,7 +65,7 @@ class DpapiKey(DataStruct):
 class DpapiMasterKeyFile(DataStruct):
     version: int = field("I", default=2)
     _1: ... = padding(8)
-    guid: str = adapter(UTF16LEAdapter())(field(72))
+    guid: str = utf16le_field(72)
     _2: ... = padding(8)
     policy: DpapiKeyPolicy = field("I")
     master_key_len: int = built("I", lambda ctx: len(ctx.master_key.key) + 32)
@@ -88,10 +80,10 @@ class DpapiMasterKeyFile(DataStruct):
     _8: ... = eval_into("key_len", lambda ctx: ctx.backup_key_len - 32)
     backup_key: DpapiKey = subfield()
     cred_hist_version: int = field("I")
-    cred_hist_guid: UUID = adapter(GUIDAdapter())(field(16))
+    cred_hist_guid: UUID = uuid_le_field()
 
 
 @dataclass
 class DpapiPreferredKeyFile(DataStruct):
-    master_key_guid: UUID = adapter(GUIDAdapter())(field(16))
-    expiration_time: datetime = adapter(FiletimeAdapter())(field(8))
+    master_key_guid: UUID = uuid_le_field()
+    expiration_time: datetime = filetime_field()

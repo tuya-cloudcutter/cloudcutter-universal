@@ -15,16 +15,16 @@ from win32wifi.Win32Wifi import (
     WlanEvent,
 )
 
+from cloudcutter.modules.base import module_thread
 from cloudcutter.types import NetworkInterface, WifiNetwork
 from cloudcutter.utils.dpapi import Dpapi
 from cloudcutter.utils.windows import wlanapi, wlanhosted, wlanmisc
-from cloudcutter.utils.windows.wlanapi import WLAN_HOSTED_NETWORK_STATE_DICT
+from cloudcutter.utils.windows.wlanapi import WlanHostedNetworkStatus
 from cloudcutter.utils.windows.wlanhosted import (
     HostedNetworkSecurity,
     HostedNetworkSettings,
 )
 
-from ..base import module_thread
 from .common import WifiCommon
 from .events import (
     WifiAPStartedEvent,
@@ -95,16 +95,13 @@ def on_wlan_notification(event: WlanEvent) -> None:
             WifiDisconnectedEvent(ssid=data.ssid.decode()).broadcast()
 
         case HNET.wlan_hosted_network_state_change.name:
-            handle = Win32NativeWifiApi.WlanOpenHandle()
-            status = wlanapi.WlanHostedNetworkQueryStatus(handle)
-            Win32NativeWifiApi.WlanCloseHandle(handle)
-            state = WLAN_HOSTED_NETWORK_STATE_DICT[status.contents.HostedNetworkState]
-            match state:
-                case "wlan_hosted_network_unavailable":
+            status = wlanapi.WlanHostedNetworkQueryStatus()
+            match status.state:
+                case WlanHostedNetworkStatus.State.UNAVAILABLE:
                     pass
-                case "wlan_hosted_network_idle":
+                case WlanHostedNetworkStatus.State.IDLE:
                     WifiAPStoppedEvent().broadcast()
-                case "wlan_hosted_network_active":
+                case WlanHostedNetworkStatus.State.ACTIVE:
                     WifiAPStartedEvent().broadcast()
 
         case _ if code not in (e.name for e in MSM):
@@ -303,8 +300,5 @@ class WifiWindows(WifiCommon):
         self,
         interface: NetworkInterface,
     ) -> bool:
-        handle = Win32NativeWifiApi.WlanOpenHandle()
-        status = wlanapi.WlanHostedNetworkQueryStatus(handle)
-        Win32NativeWifiApi.WlanCloseHandle(handle)
-        state = WLAN_HOSTED_NETWORK_STATE_DICT[status.contents.HostedNetworkState]
-        return state == "wlan_hosted_network_active"
+        status = wlanapi.WlanHostedNetworkQueryStatus()
+        return status.state == WlanHostedNetworkStatus.State.ACTIVE

@@ -1,100 +1,66 @@
 #  Copyright (c) Kuba Szczodrzyński 2023-9-9.
 
-from ctypes import POINTER, Structure, byref, c_uint, c_void_p, pointer
-from ctypes.wintypes import DWORD, HANDLE, PDWORD, ULONG
+from ctypes import byref, c_void_p
+from ctypes.wintypes import DWORD, HANDLE
+from dataclasses import dataclass
+from enum import IntEnum
+from uuid import UUID
 
-from comtypes import GUID
+from datastruct import DataStruct
+from datastruct.adapters.misc import uuid_le_field
+from datastruct.adapters.network import mac_field
+from datastruct.fields import align, field, repeat, subfield
+from datastruct.utils.misc import MemoryIO
+from macaddress import MAC
 from win32wifi import Win32NativeWifiApi
-from win32wifi.Win32NativeWifiApi import DOT11_MAC_ADDRESS, DOT11_PHY_TYPE
 from winerror import ERROR_SUCCESS
 
-WLAN_HOSTED_NETWORK_STATE = c_uint
-WLAN_HOSTED_NETWORK_STATE_DICT = {
-    0: "wlan_hosted_network_unavailable",
-    1: "wlan_hosted_network_idle",
-    2: "wlan_hosted_network_active",
-}
 
-WLAN_HOSTED_NETWORK_PEER_AUTH_STATE = c_uint
-WLAN_HOSTED_NETWORK_PEER_AUTH_STATE_DICT = {
-    0: "wlan_hosted_network_peer_state_invalid",
-    1: "wlan_hosted_network_peer_state_authenticated",
-}
+@dataclass
+class WlanHostedNetworkPeerState(DataStruct):
+    class AuthState(IntEnum):
+        INVALID = 0
+        AUTHENTICATED = 1
+
+    mac_address: MAC = mac_field()
+    _1: ... = align(4)
+    auth_state: AuthState = field("I")
 
 
-# noinspection PyPep8Naming
-class WLAN_HOSTED_NETWORK_PEER_STATE(Structure):
-    _fields_ = [
-        ("PeerMacAddress", DOT11_MAC_ADDRESS),
-        ("PeerAuthState", WLAN_HOSTED_NETWORK_PEER_AUTH_STATE),
-    ]
+@dataclass
+class WlanHostedNetworkStatus(DataStruct):
+    class State(IntEnum):
+        UNAVAILABLE = 0
+        IDLE = 1
+        ACTIVE = 2
 
-
-# noinspection PyPep8Naming
-class WLAN_HOSTED_NETWORK_STATUS(Structure):
-    _fields_ = [
-        ("HostedNetworkState", WLAN_HOSTED_NETWORK_STATE),
-        ("IPDeviceID", GUID),
-        ("wlanHostedNetworkBssid", DOT11_MAC_ADDRESS),
-        ("dot11PhyType", DOT11_PHY_TYPE),
-        ("ulChannelFrequency", ULONG),
-        ("dwNumberOfPeers", DWORD),
-        ("PeerList", WLAN_HOSTED_NETWORK_PEER_STATE * 0),
-    ]
-    HostedNetworkState: WLAN_HOSTED_NETWORK_STATE
-    IPDeviceID: GUID
-    wlanHostedNetworkBssid: DOT11_MAC_ADDRESS
-    dot11PhyType: DOT11_PHY_TYPE
-    ulChannelFrequency: ULONG
-    dwNumberOfPeers: DWORD
-    PeerList: WLAN_HOSTED_NETWORK_PEER_STATE * 0
+    state: State = field("I")
+    device_guid: UUID = uuid_le_field()
+    bssid: MAC = mac_field()
+    _1: ... = align(4)
+    phy_type: int = field("I")
+    channel_frequency: int = field("L")
+    peer_count: int = field("I")
+    peer_list: list[WlanHostedNetworkPeerState] = repeat(
+        count=lambda ctx: ctx.peer_count,
+    )(subfield())
 
 
 # noinspection PyPep8Naming
-def WlanHostedNetworkQueryStatus(hClientHandle):
+def WlanHostedNetworkQueryStatus():
+    handle = Win32NativeWifiApi.WlanOpenHandle()
     func_ref = Win32NativeWifiApi.wlanapi.WlanHostedNetworkQueryStatus
     func_ref.argtypes = [
         HANDLE,
-        POINTER(POINTER(WLAN_HOSTED_NETWORK_STATUS)),
+        c_void_p,
         c_void_p,
     ]
     func_ref.restype = DWORD
-    wlan_hosted_network_status = pointer(WLAN_HOSTED_NETWORK_STATUS())
-    result = func_ref(hClientHandle, byref(wlan_hosted_network_status), None)
+    ptr = c_void_p()
+    result = func_ref(handle, byref(ptr), None)
     if result != ERROR_SUCCESS:
-        raise Exception(f"WlanEnumInterfaces failed ({result})")
-    return wlan_hosted_network_status
-
-
-# noinspection PyPep8Naming,DuplicatedCode
-def WlanHostedNetworkStartUsing(hClientHandle):
-    func_ref = Win32NativeWifiApi.wlanapi.WlanHostedNetworkStartUsing
-    func_ref.argtypes = [
-        HANDLE,
-        PDWORD,
-        c_void_p,
-    ]
-    func_ref.restype = DWORD
-    fail_reason = DWORD()
-    result = func_ref(hClientHandle, byref(fail_reason), None)
-    if result != ERROR_SUCCESS:
-        raise Exception(
-            f"WlanHostedNetworkStartUsing failed ({result} - {fail_reason.value})"
-        )
-
-
-# noinspection PyPep8Naming,DuplicatedCode
-def WlanHostedNetworkStopUsing(hClientHandle):
-    func_ref = Win32NativeWifiApi.wlanapi.WlanHostedNetworkStopUsing
-    func_ref.argtypes = [
-        HANDLE,
-        PDWORD,
-        c_void_p,
-    ]
-    func_ref.restype = DWORD
-    fail_reason = DWORD()
-    result = func_ref(hClientHandle, byref(fail_reason), None)
-    if result != ERROR_SUCCESS:
-        raise Exception(
-            f"WlanHostedNetworkStopUsing failed ({result} - {fail_reason.value})"
-        )
+        raise Exception(f"WlanHostedNetworkQueryStatus failed ({result})")
+    status = WlanHostedNetworkStatus.unpack(MemoryIO(ptr.value))
+    Win32NativeWifiApi.WlanFreeMemory(ptr)
+    Win32NativeWifiApi.WlanCloseHandle(handle)
+    return status

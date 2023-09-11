@@ -1,6 +1,6 @@
 #  Copyright (c) Kuba Szczodrzyński 2023-9-9.
 
-from win32wifi import Win32NativeWifiApi, Win32Wifi
+from win32wifi import Win32Wifi
 
 from cloudcutter.modules.base import module_thread
 from cloudcutter.types import Ip4Config, NetworkInterface
@@ -30,12 +30,10 @@ class NetworkWindows(NetworkCommon):
                 if interface.name == iface.guid_string:
                     interface.type = NetworkInterface.Type.WIRELESS_STA
         # mark Wi-Fi Access Point interfaces
-        handle = Win32NativeWifiApi.WlanOpenHandle()
-        status = wlanapi.WlanHostedNetworkQueryStatus(handle)
+        status = wlanapi.WlanHostedNetworkQueryStatus()
         for interface in interfaces:
-            if interface.name == str(status.contents.IPDeviceID):
+            if interface.name == f"{{{status.device_guid}}}".upper():
                 interface.type = NetworkInterface.Type.WIRELESS_AP
-        Win32NativeWifiApi.WlanCloseHandle(handle)
 
     @module_thread
     async def set_ip4config(

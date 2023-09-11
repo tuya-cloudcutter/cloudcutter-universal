@@ -1,41 +1,12 @@
 #  Copyright (c) Kuba Szczodrzyński 2023-5-14.
 
 import hashlib
-from datetime import datetime
 from hmac import HMAC
-from struct import pack, unpack
-from uuid import UUID
 
 from Crypto.Cipher import AES
 from datastruct import Adapter, Context
 
 from .types import IV_LEN, KEY_LEN
-
-
-class GUIDAdapter(Adapter):
-    def encode(self, value: UUID, ctx: Context) -> bytes:
-        return value.bytes_le
-
-    def decode(self, value: bytes, ctx: Context) -> UUID:
-        return UUID(bytes_le=value)
-
-
-class UTF16LEAdapter(Adapter):
-    def encode(self, value: str, ctx: Context) -> bytes:
-        return (value + "\x00").encode("utf-16le")
-
-    def decode(self, value: bytes, ctx: Context) -> str:
-        return value.decode("utf-16le").rstrip("\x00")
-
-
-class FiletimeAdapter(Adapter):
-    def encode(self, value: datetime, ctx: Context) -> bytes:
-        timestamp = value.timestamp()
-        return pack("<Q", int((timestamp + 11644473600) * 10000000))
-
-    def decode(self, value: bytes, ctx: Context) -> datetime:
-        timestamp = int(unpack("<Q", value)[0] / 10000000) - 11644473600
-        return datetime.fromtimestamp(timestamp)
 
 
 class DpapiBlobAdapter(Adapter):

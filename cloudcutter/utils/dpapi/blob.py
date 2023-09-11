@@ -6,6 +6,7 @@ from io import BytesIO
 from uuid import UUID
 
 from datastruct import DataStruct, datastruct
+from datastruct.adapters.misc import utf16le_field, uuid_le_field
 from datastruct.fields import (
     adapter,
     built,
@@ -15,7 +16,7 @@ from datastruct.fields import (
     field,
 )
 
-from .adapter import DpapiBlobAdapter, GUIDAdapter, UTF16LEAdapter
+from .adapter import DpapiBlobAdapter
 from .types import KEY_LEN, WCP_GUID, DpapiAlgoCrypt, DpapiAlgoHash
 
 
@@ -23,7 +24,7 @@ from .types import KEY_LEN, WCP_GUID, DpapiAlgoCrypt, DpapiAlgoHash
 @datastruct(padding_pattern=b"\x00")
 class DpapiBlob(DataStruct):
     version1: int = field("I", default=1)
-    guid_default_provider: UUID = adapter(GUIDAdapter())(field(16, default=WCP_GUID))
+    guid_default_provider: UUID = uuid_le_field(default=WCP_GUID)
     _checksum: ... = checksum_start(
         init=lambda ctx: BytesIO(),
         update=lambda v, obj, ctx: obj.write(v) and None,
@@ -34,10 +35,10 @@ class DpapiBlob(DataStruct):
         ).digest(),
     )
     version2: int = field("I", default=1)
-    guid_master_key: UUID = adapter(GUIDAdapter())(field(16))
+    guid_master_key: UUID = uuid_le_field()
     flags: int = field("I", default=0)
     name_len: int = built("I", lambda ctx: (len(ctx.name) + 1) * 2)
-    name: str = adapter(UTF16LEAdapter())(field(lambda ctx: ctx.name_len, default=""))
+    name: str = utf16le_field(lambda ctx: ctx.name_len, default="")
     alg_crypt: DpapiAlgoCrypt = field("I", default=0x6610)
     alg_crypt_len: int = field("I", default=256)
     salt_len: int = built("I", lambda ctx: len(ctx.salt))
