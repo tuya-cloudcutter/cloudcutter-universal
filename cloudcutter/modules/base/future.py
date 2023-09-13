@@ -16,3 +16,10 @@ class FutureMixin:
             future.set_result(result)
 
         asyncio.run_coroutine_threadsafe(resolve(), future.get_loop())
+
+    @staticmethod
+    def reject_future(future: Future, error: Any = None) -> None:
+        async def resolve():
+            future.set_exception(error)
+
+        asyncio.run_coroutine_threadsafe(resolve(), future.get_loop())

@@ -1,7 +1,6 @@
 #  Copyright (c) Kuba Szczodrzyński 2023-9-8.
 
 import asyncio
-import traceback
 from asyncio import AbstractEventLoop, Future
 from queue import Queue
 from threading import Thread, current_thread
@@ -38,7 +37,6 @@ class EventMixin(FutureMixin, LoggerMixin):
         except Exception as e:
             if self.should_run:
                 self.exception("Thread raised exception", exc_info=e)
-                traceback.print_exc()
 
         self.verbose("Finished run()")
         self.thread = None  # clear thread created in start()

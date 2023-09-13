@@ -26,19 +26,15 @@ class DnsModule(ModuleBase):
         # intercept dnserver logging messages
         logger.info = self.on_message
         logger.removeHandler(handler)
-        await super().start()
-
-    async def stop(self) -> None:
-        self.dns.stop()
-        await super().stop()
-
-    async def run(self) -> None:
         # start the server
         self.info(f"Starting DNS server on 0.0.0.0:{self.dns.port}")
         self.dns.start()
         # disable dnslib logging
         self.dns.tcp_server.server.logger.logf = lambda *_: None
         self.dns.udp_server.server.logger.logf = lambda *_: None
+
+    async def stop(self) -> None:
+        self.dns.stop()
 
     def on_message(self, msg: str, *args) -> None:
         if "no local zone found" in msg:
