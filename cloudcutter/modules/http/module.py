@@ -242,7 +242,7 @@ class HttpRequestHandler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         path = url.path
         query = parse_qs(url.query, keep_blank_values=True)
-        query = {k.lower(): v for k, v in query.items()}
+        query = {k.lower(): v[0] for k, v in query.items()}
         headers = {k.lower(): v for k, v in self.headers.items()}
         host = headers.get("host", "")
 
@@ -255,13 +255,12 @@ class HttpRequestHandler(BaseHTTPRequestHandler):
                 continue
             if model.query:
                 if not all(
-                    k in query and re.match(v, query[k][0])
-                    for k, v in model.query.items()
+                    k in query and re.match(v, query[k]) for k, v in model.query.items()
                 ):
                     continue
             if model.headers:
                 if not all(
-                    k in headers and re.match(v, headers[k][0])
+                    k in headers and re.match(v, headers[k])
                     for k, v in model.headers.items()
                 ):
                     continue
@@ -275,20 +274,21 @@ class HttpRequestHandler(BaseHTTPRequestHandler):
 
         if length := int(headers.get("content-length", 0)):
             body = self.rfile.read(length)
+            match headers.get("content-type", "").partition(";")[0]:
+                case "text/plain":
+                    body = body.decode("utf-8")
+                case "application/json":
+                    body = json.loads(body.decode("utf-8"))
+                case "application/x-www-form-urlencoded":
+                    body = parse_qs(body.decode("utf-8"), keep_blank_values=True)
+                    body = {k.lower(): v[0] for k, v in body.items()}
+                case _:
+                    try:
+                        body = body.decode("utf-8")
+                    except UnicodeDecodeError:
+                        pass
         else:
             body = None
-        match headers.get("content-type", "").partition(";")[0]:
-            case "text/plain":
-                body = body.decode("utf-8")
-            case "application/json":
-                body = json.loads(body.decode("utf-8"))
-            case "application/x-www-form-urlencoded":
-                body = parse_qs(body.decode("utf-8"), keep_blank_values=True)
-            case _:
-                try:
-                    body = body.decode("utf-8")
-                except UnicodeDecodeError:
-                    pass
 
         request = Request(method, path, host, query, headers, body)
         coro = func(request)
