@@ -25,10 +25,10 @@ class DnsCore(ModuleBase, ABC):
                 "addr": f"https://{self.dns_host}/d.json",
                 "ips": ips,
             },
-            # "mqttUrl": {
-            #     "addr": f"{self.dns_host}:1883",
-            #     "ips": ips,
-            # },
+            "mqttUrl": {
+                "addr": f"{self.dns_host}:1883",
+                "ips": ips,
+            },
             # "mqttsPSKUrl": {
             #     "addr": f"{self.dns_host}:8886",
             #     "ips": ips,

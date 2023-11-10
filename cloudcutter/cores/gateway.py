@@ -13,18 +13,21 @@ from Crypto.Util.Padding import pad, unpad
 
 from cloudcutter.modules import http as httpm
 from cloudcutter.modules.base import ModuleBase
-from cloudcutter.modules.http import Request, Response
+from cloudcutter.modules.http import HttpModule, Request, Response
 
 from .device import Device, DeviceCore
 
 
 class GatewayCore(DeviceCore, ModuleBase, ABC):
-    def _decrypt_data(
+    http: HttpModule
+
+    def _decrypt_http(
         self,
         request: Request,
     ) -> tuple[Device, dict]:
         device = self.get_device(request=request)
         data = bytes.fromhex(request.body["data"])
+
         match device.encryption_type:
             case 0:
                 raise NotImplementedError()
@@ -40,11 +43,12 @@ class GatewayCore(DeviceCore, ModuleBase, ABC):
                 data = aes.decrypt_and_verify(data, received_mac_tag=tag)
             case _:
                 raise NotImplementedError()
+
         obj = json.loads(data)
-        self.debug(f"Request body: {obj}")
+        self.debug(f"HTTP request body: {obj}")
         return device, obj
 
-    def _encrypt_data(
+    def _encrypt_http(
         self,
         device: Device,
         result: str | dict | bool | int | None,
@@ -54,8 +58,9 @@ class GatewayCore(DeviceCore, ModuleBase, ABC):
             obj["result"] = result
         else:
             obj["result"] = {}
-        self.debug(f"Response body: {obj}")
+        self.debug(f"HTTP response body: {obj}")
         data = json.dumps(obj, separators=(",", ":")).encode()
+
         match device.encryption_type:
             case 0:
                 raise NotImplementedError()
@@ -70,6 +75,7 @@ class GatewayCore(DeviceCore, ModuleBase, ABC):
                 data = iv + data + tag
             case _:
                 raise NotImplementedError()
+
         result_encoded = b64encode(data)
         signature = md5()
         signature.update(b"result=")
@@ -84,8 +90,8 @@ class GatewayCore(DeviceCore, ModuleBase, ABC):
 
     @httpm.post("/d.json", query=dict(a="tuya.device.active"))
     async def on_gateway_active(self, request: Request) -> Response:
-        device, data = self._decrypt_data(request)
-        self.debug(f"Activating device: uuid={device.uuid}, softVer={data['softVer']}")
+        device, data = self._decrypt_http(request)
+        self.info(f"Activating device: uuid={device.uuid}, softVer={data['softVer']}")
         schema = [
             {
                 "mode": "rw",
@@ -97,7 +103,7 @@ class GatewayCore(DeviceCore, ModuleBase, ABC):
             }
         ]
         new_aes_key = device.auth_key[:16].decode()
-        return self._encrypt_data(
+        return self._encrypt_http(
             device=device,
             result={
                 "schema": json.dumps(schema, separators=(",", ":")),
@@ -117,7 +123,7 @@ class GatewayCore(DeviceCore, ModuleBase, ABC):
     async def on_gateway_other(self, request: Request) -> Response:
         action = request.query.get("a", None)
         self.info(f"Gateway request: {action}")
-        device, data = self._decrypt_data(request)
+        device, data = self._decrypt_http(request)
         result = None
         schema_path = (
             Path(__file__).parent.parent.with_name("schema").joinpath(f"{action}.json")
@@ -128,4 +134,4 @@ class GatewayCore(DeviceCore, ModuleBase, ABC):
             result = json.loads(text).get("result", None)
         else:
             self.warning(f"Missing schema response for {action}")
-        return self._encrypt_data(device, result=result)
+        return self._encrypt_http(device, result=result)
