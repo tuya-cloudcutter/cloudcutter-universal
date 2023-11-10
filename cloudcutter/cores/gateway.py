@@ -1,6 +1,7 @@
 #  Copyright (c) Kuba Szczodrzyński 2023-11-10.
 
 import json
+from abc import ABC
 from base64 import b64encode
 from hashlib import md5
 from pathlib import Path
@@ -17,7 +18,7 @@ from cloudcutter.modules.http import Request, Response
 from .device import Device, DeviceCore
 
 
-class GatewayCore(DeviceCore, ModuleBase):
+class GatewayCore(DeviceCore, ModuleBase, ABC):
     def _decrypt_data(
         self,
         request: Request,

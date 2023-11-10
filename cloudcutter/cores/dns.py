@@ -1,11 +1,13 @@
 #  Copyright (c) Kuba Szczodrzyński 2023-11-10.
 
+from abc import ABC
+
 from cloudcutter.modules import http as httpm
 from cloudcutter.modules.base import ModuleBase
 from cloudcutter.modules.http import Request, Response
 
 
-class DnsCore(ModuleBase):
+class DnsCore(ModuleBase, ABC):
     dns_ip: str = None
     dns_host: str = None
 

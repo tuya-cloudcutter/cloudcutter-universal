@@ -1,5 +1,6 @@
 #  Copyright (c) Kuba Szczodrzyński 2023-11-10.
 
+from abc import ABC
 from dataclasses import dataclass
 from hashlib import sha256
 
@@ -20,7 +21,7 @@ class Device:
         self.psk_id = sha256(self.uuid.encode()).digest()
 
 
-class DeviceCore(ModuleBase):
+class DeviceCore(ModuleBase, ABC):
     dev_db: list[Device]
 
     def __init__(self):
