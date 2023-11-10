@@ -134,6 +134,7 @@ class HttpModule(ModuleBase):
                 psk_cb=lambda identity: self._ssl_psk_callback(identity),
                 hint=self._https_psk_hint,
             )
+            sock.do_handshake()
             return sock, addr
 
         self._https.socket.accept = accept
@@ -157,11 +158,15 @@ class HttpModule(ModuleBase):
         self.warning(f"Unknown SNI name '{sni}'")
 
     def _ssl_psk_callback(self, identity: bytes) -> bytes:
+        self.verbose(f"Connection with PSK identity {identity.hex()}")
         for pattern, psk in self.ssl_psk_db:
             if not re.match(pattern, identity):
                 continue
             if callable(psk):
-                psk = psk(identity)
+                try:
+                    psk = psk(identity)
+                except ValueError:
+                    psk = None
             if psk is None:
                 continue
             return psk
@@ -182,13 +187,14 @@ class HttpModule(ModuleBase):
         self.handlers.append((model, func))
 
     def add_handlers(self, obj: object) -> None:
-        for func in type(obj).__dict__.values():
-            if not hasattr(func, "__requests__"):
-                continue
-            # decorated function is not bound to instance
-            bound_func = partial(func, obj)
-            for model in getattr(func, "__requests__"):
-                self.handlers.append((model, bound_func))
+        for cls in type(obj).__bases__:
+            for func in cls.__dict__.values():
+                if not hasattr(func, "__requests__"):
+                    continue
+                # decorated function is not bound to instance
+                bound_func = partial(func, obj)
+                for model in getattr(func, "__requests__"):
+                    self.handlers.append((model, bound_func))
 
     def add_ssl_cert(self, cert: str, key: str, sni: str = ".*") -> None:
         self.ssl_cert_db.append((sni, (cert, key)))
