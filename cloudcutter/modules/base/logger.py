@@ -1,5 +1,6 @@
 #  Copyright (c) Kuba Szczodrzyński 2023-9-8.
 
+import logging
 from logging import CRITICAL, DEBUG, ERROR, INFO, WARNING, log
 from threading import current_thread
 
@@ -32,9 +33,13 @@ class LoggerMixin:
         self.log(CRITICAL, msg, *args, **kwargs)
 
     def log(self, level, msg, *args, **kwargs):
+        if logging.getLogger().level <= DEBUG:
+            msg = f"{type(self).__name__}<{current_thread().name}>: {msg}"
+        else:
+            msg = f"{type(self).__name__}: {msg}"
         log(
             level,
-            f"{type(self).__name__}<{current_thread().name}>: {msg}",
+            msg,
             *args,
             **kwargs,
         )
