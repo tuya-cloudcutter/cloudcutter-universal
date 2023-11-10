@@ -2,7 +2,7 @@
 
 from .decorator import get, post, request
 from .module import HttpModule
-from .request import Request, Response
+from .types import Request, Response
 
 __all__ = [
     "HttpModule",

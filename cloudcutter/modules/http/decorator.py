@@ -1,6 +1,6 @@
 #  Copyright (c) Kuba Szczodrzyński 2023-9-11.
 
-from .request import Request, RequestHandler
+from .types import Request, RequestHandler
 
 
 def request(

@@ -19,7 +19,7 @@ from sslpsk3.sslpsk3 import _ssl_set_psk_server_callback
 
 from cloudcutter.modules.base import ModuleBase
 
-from .request import Request, RequestHandler
+from .types import Request, RequestHandler
 
 SSLCertType = tuple[str, str] | Callable[[str], tuple[str, str]]
 SSLPSKType = bytes | Callable[[bytes], bytes]
@@ -93,9 +93,11 @@ class HttpModule(ModuleBase):
         if self._http:
             self._http.shutdown()
             self._http_thread.join()
+            self._http = self._http_thread = None
         if self._https:
             self._https.shutdown()
             self._https_thread.join()
+            self._https = self._https_thread = None
 
     def http_entrypoint(self, future: Future) -> None:
         self.resolve_future(future)
@@ -187,7 +189,7 @@ class HttpModule(ModuleBase):
         self.handlers.append((model, func))
 
     def add_handlers(self, obj: object) -> None:
-        for cls in type(obj).__bases__:
+        for cls in type(obj).__bases__ + (type(obj),):
             for func in cls.__dict__.values():
                 if not hasattr(func, "__requests__"):
                     continue
@@ -220,7 +222,9 @@ class HttpRequestHandler(BaseHTTPRequestHandler):
             self.http.exception(f"Request handler raised exception", exc_info=e)
 
     def log_request(self, code: int | str = ..., size: int | str = ...) -> None:
-        self.http.info(f"{self.address_string()}: {self.command} {self.path} -> {code}")
+        self.http.debug(
+            f"{self.address_string()}: {self.command} {self.path} -> {code}"
+        )
 
     def log_error(self, msg: str, *args: Any) -> None:
         self.http.error(msg, *args)
@@ -252,32 +256,6 @@ class HttpRequestHandler(BaseHTTPRequestHandler):
         headers = {k.lower(): v for k, v in self.headers.items()}
         host = headers.get("host", "")
 
-        for model, func in self.http.handlers:
-            if not re.match(model.method, method):
-                continue
-            if not re.match(model.path, path):
-                continue
-            if model.host and not re.match(model.host, host):
-                continue
-            if model.query:
-                if not all(
-                    k in query and re.match(v, query[k]) for k, v in model.query.items()
-                ):
-                    continue
-            if model.headers:
-                if not all(
-                    k in headers and re.match(v, headers[k])
-                    for k, v in model.headers.items()
-                ):
-                    continue
-            break
-        else:
-            self.send_response(HTTPStatus.NOT_FOUND)
-            self.send_header("Connection", "close")
-            self.send_header("Content-Length", "0")
-            self.end_headers()
-            return
-
         if length := int(headers.get("content-length", 0)):
             body = self.rfile.read(length)
             match headers.get("content-type", "").partition(";")[0]:
@@ -297,11 +275,38 @@ class HttpRequestHandler(BaseHTTPRequestHandler):
             body = None
 
         request = Request(method, path, host, query, headers, body)
-        coro = func(request)
-        response = asyncio.new_event_loop().run_until_complete(coro)
 
-        if response is None:
+        for model, func in self.http.handlers:
+            if not re.match(model.method, method):
+                continue
+            if not re.match(model.path, path):
+                continue
+            if model.host and not re.match(model.host, host):
+                continue
+            if model.query:
+                if not all(
+                    k in query and re.match(v, query[k]) for k, v in model.query.items()
+                ):
+                    continue
+            if model.headers:
+                if not all(
+                    k in headers and re.match(v, headers[k])
+                    for k, v in model.headers.items()
+                ):
+                    continue
+            # execute the request handler to get a response
+            coro = func(request)
+            response = asyncio.new_event_loop().run_until_complete(coro)
+            # finish if a response was returned
+            if response is not None:
+                break
+        else:
+            self.send_response(HTTPStatus.NOT_FOUND)
+            self.send_header("Connection", "close")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
             return
+
         if isinstance(response, int):
             self.send_response(response)
             self.send_header("Connection", "close")
