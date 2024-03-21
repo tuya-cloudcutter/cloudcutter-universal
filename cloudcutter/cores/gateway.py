@@ -20,6 +20,7 @@ from .device import Device, DeviceCore
 
 class GatewayCore(DeviceCore, ModuleBase, ABC):
     http: HttpModule
+    schema_dir_path: Path
 
     def _decrypt_http(
         self,
@@ -102,7 +103,6 @@ class GatewayCore(DeviceCore, ModuleBase, ABC):
                 "type": "obj",
             }
         ]
-        new_aes_key = device.auth_key[:16].decode()
         return self._encrypt_http(
             device=device,
             result={
@@ -111,11 +111,11 @@ class GatewayCore(DeviceCore, ModuleBase, ABC):
                 "resetFactory": False,
                 "timeZone": "+02:00",
                 "capability": 1025,
-                "secKey": new_aes_key,
+                "secKey": device.active_key,
                 "stdTimeZone": "+01:00",
                 "schemaId": "0000000000",
                 "dstIntervals": [],
-                "localKey": new_aes_key,
+                "localKey": device.active_key,
             },
         )
 
@@ -125,9 +125,7 @@ class GatewayCore(DeviceCore, ModuleBase, ABC):
         self.debug(f"Gateway request: {action}")
         device, data = self._decrypt_http(request)
         result = None
-        schema_path = (
-            Path(__file__).parent.parent.with_name("schema").joinpath(f"{action}.json")
-        )
+        schema_path = self.schema_dir_path / f"{action}.json"
         if schema_path.is_file():
             text = schema_path.read_text()
             text = text.replace("DUMMY", device.uuid)

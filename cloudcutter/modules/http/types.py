@@ -1,9 +1,10 @@
 #  Copyright (c) Kuba Szczodrzyński 2023-9-11.
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Awaitable, Callable
 
-HttpBody = str | bytes | dict
+HttpBody = str | bytes | dict | Path
 Response = HttpBody | int | None
 
 

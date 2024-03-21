@@ -1,6 +1,10 @@
 #  Copyright (c) Kuba Szczodrzyński 2023-11-10.
 
+import hmac
 from abc import ABC
+from hashlib import sha256
+from pathlib import Path
+from pprint import pprint
 
 from cloudcutter.modules import http as httpm
 from cloudcutter.modules import mqtt as mqttm
@@ -13,6 +17,9 @@ from .mqtt import MqttCore
 
 class OtaCore(MqttCore, GatewayCore, ModuleBase, ABC):
     upgraded_devices: set[str] = None
+    files_host: str = None
+    files_dir_path: Path
+    fw_name: str
 
     def __init__(self):
         super().__init__()
@@ -64,13 +71,20 @@ class OtaCore(MqttCore, GatewayCore, ModuleBase, ABC):
         self.info(f"Upgrading {device.uuid} by {action} - sending upgrade information")
         self.upgraded_devices.add(device.uuid)
 
+        fw_path = self.files_dir_path / self.fw_name
+        fw_data = fw_path.read_bytes()
+        fw_sha = sha256(fw_data).hexdigest().upper().encode()
+        fw_hmac = (
+            hmac.digest(device.active_key.encode(), fw_sha, "sha256").hex().upper()
+        )
+
         return self._encrypt_http(
             device=device,
             result={
-                "url": "",
-                "hmac": ""[:32],
+                "url": f"http://{self.files_host}/files/{self.fw_name}",
+                "hmac": fw_hmac,
                 "version": "9.0.0",
-                "size": "0",
+                "size": str(len(fw_data)),
                 "type": 0,
             },
         )
@@ -92,3 +106,8 @@ class OtaCore(MqttCore, GatewayCore, ModuleBase, ABC):
         data = data["data"]
 
         self.info(f"Upgrading device {device.uuid} - progress {data['progress']}%")
+
+    @httpm.get("/files/(.*)")
+    async def on_files_get(self, request: Request) -> Response:
+        fw_name = request.path.rpartition("/")[2]
+        return self.files_dir_path / fw_name

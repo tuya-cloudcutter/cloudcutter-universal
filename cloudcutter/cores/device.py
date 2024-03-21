@@ -20,6 +20,11 @@ class Device:
     def __post_init__(self) -> None:
         self.psk_id = sha256(self.uuid.encode()).digest()
 
+    @property
+    def active_key(self) -> str:
+        # secKey, localKey, etc.
+        return self.auth_key[:16].decode()
+
 
 class DeviceCore(ModuleBase, ABC):
     dev_db: list[Device]

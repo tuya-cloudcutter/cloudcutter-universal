@@ -9,6 +9,7 @@ from functools import partial
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from ipaddress import IPv4Address
+from pathlib import Path
 from ssl import PROTOCOL_TLS, SSLContext, SSLSocket
 from threading import Thread
 from typing import Any, Callable
@@ -330,6 +331,9 @@ class HttpRequestHandler(BaseHTTPRequestHandler):
             case bytes():
                 content_type = "application/octet-stream"
                 body = response
+            case Path():
+                content_type = "application/octet-stream"
+                body = response.read_bytes()
             case dict() | list():
                 content_type = "application/json"
                 body = json.dumps(response).encode("utf-8")
