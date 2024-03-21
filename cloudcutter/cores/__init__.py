@@ -4,6 +4,7 @@ from .device import Device, DeviceCore
 from .dns import DnsCore
 from .gateway import GatewayCore
 from .mqtt import MqttCore
+from .ota import OtaCore
 
 __all__ = [
     "Device",
@@ -11,4 +12,5 @@ __all__ = [
     "DnsCore",
     "GatewayCore",
     "MqttCore",
+    "OtaCore",
 ]
