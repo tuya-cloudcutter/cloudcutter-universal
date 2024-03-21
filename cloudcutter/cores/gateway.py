@@ -122,7 +122,7 @@ class GatewayCore(DeviceCore, ModuleBase, ABC):
     @httpm.post("/d.json")
     async def on_gateway_other(self, request: Request) -> Response:
         action = request.query.get("a", None)
-        self.info(f"Gateway request: {action}")
+        self.debug(f"Gateway request: {action}")
         device, data = self._decrypt_http(request)
         result = None
         schema_path = (

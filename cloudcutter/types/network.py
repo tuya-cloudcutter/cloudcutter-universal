@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from enum import Enum, auto
-from ipaddress import IPv4Address
+from ipaddress import IPv4Address, IPv4Network
 from typing import Any
 
 
@@ -39,3 +39,7 @@ class Ip4Config:
     address: IPv4Address
     netmask: IPv4Address
     gateway: IPv4Address | None
+
+    @property
+    def network(self) -> IPv4Network:
+        return IPv4Network(f"{self.address}/{self.netmask}", strict=False)

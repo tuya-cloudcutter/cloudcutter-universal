@@ -222,9 +222,7 @@ class HttpRequestHandler(BaseHTTPRequestHandler):
             self.http.exception(f"Request handler raised exception", exc_info=e)
 
     def log_request(self, code: int | str = ..., size: int | str = ...) -> None:
-        self.http.debug(
-            f"{self.address_string()}: {self.command} {self.path} -> {code}"
-        )
+        self.http.info(f"{self.address_string()}: {self.command} {self.path} -> {code}")
 
     def log_error(self, msg: str, *args: Any) -> None:
         self.http.error(msg, *args)

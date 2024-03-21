@@ -154,7 +154,6 @@ class WifiWindows(WifiCommon):
     ) -> list[WifiNetwork]:
         interface.ensure_wifi_sta()
         iface = iface_by_guid(interface.name)
-        self.debug(f"Scanning for networks")
         handle = Win32NativeWifiApi.WlanOpenHandle()
         Win32NativeWifiApi.WlanScan(handle, iface.guid)
         Win32NativeWifiApi.WlanCloseHandle(handle)
@@ -173,7 +172,6 @@ class WifiWindows(WifiCommon):
         xml = wlanmisc.make_xml_profile(network)
         if await self.get_station_state(interface):
             await self.stop_station()
-        self.info(f"Connecting to '{network.ssid}'")
         handle = Win32NativeWifiApi.WlanOpenHandle()
         params = Win32NativeWifiApi.WLAN_CONNECTION_PARAMETERS()
         params.wlanConnectionMode = Win32NativeWifiApi.WLAN_CONNECTION_MODE(
@@ -186,9 +184,11 @@ class WifiWindows(WifiCommon):
         params.pDesiredBssidList = None
         params.dot11BssType = Win32NativeWifiApi.DOT11_BSS_TYPE(
             Win32NativeWifiApi.DOT11_BSS_TYPE_DICT_VK[
-                "dot11_BSS_type_independent"
-                if network.ad_hoc
-                else "dot11_BSS_type_infrastructure"
+                (
+                    "dot11_BSS_type_independent"
+                    if network.ad_hoc
+                    else "dot11_BSS_type_infrastructure"
+                )
             ]
         )
         params.dwFlags = 0
@@ -204,7 +204,6 @@ class WifiWindows(WifiCommon):
         interface.ensure_wifi_sta()
         iface = iface_by_guid(interface.name)
         _, state = Win32Wifi.queryInterface(iface, "interface_state")
-        self.info("Disconnecting Wi-Fi")
         Win32Wifi.disconnect(iface)
         if await self.get_station_state(interface):
             await WifiDisconnectedEvent.any()
@@ -240,7 +239,7 @@ class WifiWindows(WifiCommon):
         interface.ensure_wifi_ap()
         config_changed = False
 
-        self.info("Checking Hosted Network configuration")
+        self.debug("Checking Hosted Network configuration")
         try:
             old_settings = wlanhosted.read_settings()
             if not old_settings.allowed or old_settings.not_configured:
@@ -274,10 +273,10 @@ class WifiWindows(WifiCommon):
             self._unregister(stop_wlansvc=True)
             await asyncio.sleep(2)
 
-            self.info("Writing Hosted Network settings")
+            self.debug("Writing Hosted Network settings")
             wlanhosted.write_settings(new_settings)
 
-            self.info("Writing Hosted Network security settings")
+            self.debug("Writing Hosted Network security settings")
             wlanhosted.write_security(self.dpapi, new_security)
 
             self._register()
