@@ -71,9 +71,9 @@ def make_xml_profile(network: WifiNetwork) -> str:
         shared_key = {
             "keyType": "networkKey" if wep else "passPhrase",
             "protected": "false",
-            "keyMaterial": network.password.hex().upper()
-            if wep
-            else network.password.decode(),
+            "keyMaterial": (
+                network.password.hex().upper() if wep else network.password.decode()
+            ),
         }
     else:
         shared_key = None
@@ -99,11 +99,12 @@ def make_xml_profile(network: WifiNetwork) -> str:
                         "encryption": XML_CIPHER_MAP[network.cipher],
                         "useOneX": "false",
                     },
-                    "sharedKey": shared_key,
                 },
             },
         },
     }
+    if shared_key:
+        profile["WLANProfile"]["MSM"]["security"]["sharedKey"] = shared_key
     return xmltodict.unparse(profile, pretty=True)
 
 
