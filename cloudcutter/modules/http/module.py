@@ -71,6 +71,10 @@ class HttpModule(ModuleBase):
         if not self._address:
             raise RuntimeError("Server not configured")
 
+        for request, func in self.handlers:
+            name = re.match(r".+?function ([\w_.]+)", str(func)).group(1)
+            self.debug(f"Found handler '{name}' for {request.format()}")
+
         http_future = self.make_future()
         self._http_thread = Thread(
             target=self.http_entrypoint,
@@ -189,7 +193,14 @@ class HttpModule(ModuleBase):
         self.handlers.append((model, func))
 
     def add_handlers(self, obj: object) -> None:
-        for cls in type(obj).__bases__ + (type(obj),):
+        def scan_type(scan_cls):
+            scan_types = [scan_cls]
+            for base in scan_cls.__bases__:
+                scan_types += scan_type(base)
+            return scan_types
+
+        types = scan_type(type(obj))
+        for cls in types:
             for func in cls.__dict__.values():
                 if not hasattr(func, "__requests__"):
                     continue

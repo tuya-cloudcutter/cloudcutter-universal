@@ -26,5 +26,12 @@ class Request:
         if self.headers:
             self.headers = {k.lower(): v for k, v in self.headers.items()}
 
+    def format(self) -> str:
+        # noinspection HttpUrlsUsage
+        result = f"{self.method} http://{self.host or '.*'}{self.path}"
+        if self.query:
+            result += "?" + "&".join(f"{k}={v}" for k, v in self.query.items())
+        return result
+
 
 RequestHandler = Callable[[Request], Awaitable[Response]]
