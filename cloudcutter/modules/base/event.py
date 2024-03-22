@@ -142,6 +142,20 @@ class EventMixin(FutureMixin, LoggerMixin):
     def call_coroutine(self, coro: Awaitable[Any]) -> None:
         self.queue.put(CoroutineCallEvent(coro))
 
+    async def call_threaded(self, coro: Awaitable[Any]) -> Future[bool]:
+        start_future = self.make_future()
+        end_future = self.make_future()
+
+        def event_loop():
+            self.resolve_future(start_future)
+            worker_loop = asyncio.new_event_loop()
+            worker_loop.run_until_complete(coro)
+            self.resolve_future(end_future)
+
+        Thread(target=event_loop).start()
+        await start_future
+        return end_future
+
 
 def subscribe(obj: type | object):
     def decorator(func: EventHandler) -> EventHandler:

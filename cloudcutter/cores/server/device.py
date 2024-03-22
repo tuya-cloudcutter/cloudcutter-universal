@@ -1,38 +1,13 @@
 #  Copyright (c) Kuba Szczodrzyński 2023-11-10.
 
-from abc import ABC
-from dataclasses import dataclass
-from hashlib import sha256
-
 from cloudcutter.modules.base import ModuleBase
 from cloudcutter.modules.http import Request
 
-
-@dataclass
-class Device:
-    uuid: str
-    auth_key: bytes
-    psk: bytes
-    psk_id: bytes = None
-    encryption_type: int = None
-    aes_key: bytes = None
-
-    def __post_init__(self) -> None:
-        self.psk_id = sha256(self.uuid.encode()).digest()
-
-    @property
-    def active_key(self) -> str:
-        # secKey, localKey, etc.
-        return self.auth_key[:16].decode()
+from ._data import TuyaServerData
+from ._types import Device
 
 
-class DeviceCore(ModuleBase, ABC):
-    dev_db: list[Device]
-
-    def __init__(self):
-        super().__init__()
-        self.dev_db = []
-
+class DeviceCore(TuyaServerData, ModuleBase):
     def get_device(
         self,
         uuid: str = None,
@@ -65,7 +40,7 @@ class DeviceCore(ModuleBase, ABC):
 
     def calc_psk_v1(self, identity: bytes) -> bytes:
         # assert len(identity) == 50
-        raise NotImplementedError()
+        return b""
 
     def calc_psk_v2(self, identity: bytes) -> bytes:
         assert len(identity) == 49

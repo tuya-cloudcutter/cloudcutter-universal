@@ -1,10 +1,8 @@
 #  Copyright (c) Kuba Szczodrzyński 2023-11-10.
 
 import json
-from abc import ABC
 from base64 import b64encode
 from hashlib import md5
-from pathlib import Path
 from secrets import token_hex
 from time import time
 
@@ -13,15 +11,14 @@ from Crypto.Util.Padding import pad, unpad
 
 from cloudcutter.modules import http as httpm
 from cloudcutter.modules.base import ModuleBase
-from cloudcutter.modules.http import HttpModule, Request, Response
+from cloudcutter.modules.http import Request, Response
 
-from .device import Device, DeviceCore
+from ._data import TuyaServerData
+from ._types import Device
+from .device import DeviceCore
 
 
-class GatewayCore(DeviceCore, ModuleBase, ABC):
-    http: HttpModule
-    schema_dir_path: Path
-
+class GatewayCore(DeviceCore, TuyaServerData, ModuleBase):
     def _decrypt_http(
         self,
         request: Request,
@@ -125,7 +122,7 @@ class GatewayCore(DeviceCore, ModuleBase, ABC):
         self.debug(f"Gateway request: {action}")
         device, data = self._decrypt_http(request)
         result = None
-        schema_path = self.schema_dir_path / f"{action}.json"
+        schema_path = self.schema_path / f"{action}.json"
         if schema_path.is_file():
             text = schema_path.read_text()
             text = text.replace("DUMMY", device.uuid)

@@ -60,3 +60,13 @@ class NetworkCommon(ModuleBase):
         ipconfig: Ip4Config,
     ) -> None:
         raise NotImplementedError()
+
+    async def get_interface(
+        self,
+        interface_type: NetworkInterface.Type,
+    ) -> NetworkInterface | None:
+        interfaces = await self.list_interfaces()
+        try:
+            return next(i for i in interfaces if i.type == interface_type)
+        except StopIteration:
+            return None

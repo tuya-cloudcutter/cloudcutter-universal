@@ -1,7 +1,6 @@
 #  Copyright (c) Kuba Szczodrzyński 2023-11-10.
 
 import json
-from abc import ABC
 from base64 import b64decode, b64encode
 from binascii import crc32
 from hashlib import md5
@@ -13,14 +12,13 @@ from ltchiptool.util.intbin import inttobe32
 
 from cloudcutter.modules import mqtt as mqttm
 from cloudcutter.modules.base import ModuleBase
-from cloudcutter.modules.mqtt import MqttModule
 
-from .device import Device, DeviceCore
+from ._data import TuyaServerData
+from ._types import Device
+from .device import DeviceCore
 
 
-class MqttCore(DeviceCore, ModuleBase, ABC):
-    mqtt: MqttModule
-
+class MqttCore(DeviceCore, TuyaServerData, ModuleBase):
     def _decrypt_mqtt(
         self,
         topic: str,

@@ -34,7 +34,8 @@ class DnsModule(ModuleBase):
         self.dns.udp_server.server.logger.logf = lambda *_: None
 
     async def stop(self) -> None:
-        self.dns.stop()
+        if self.dns.udp_server and self.dns.tcp_server:
+            self.dns.stop()
 
     def on_message(self, msg: str, *args) -> None:
         if "no local zone found" in msg:
