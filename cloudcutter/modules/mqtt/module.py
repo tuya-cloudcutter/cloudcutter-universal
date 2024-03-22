@@ -5,16 +5,24 @@ import logging
 from asyncio import AbstractEventLoop, Future
 from functools import partial
 from ipaddress import IPv4Address
+from logging import DEBUG, LogRecord
 from threading import Thread
 
 from amqtt.broker import Broker
 from amqtt.client import MQTTClient
 from amqtt.mqtt.constants import QOS_0
+from amqtt.mqtt.protocol.broker_handler import BrokerProtocolHandler
 from amqtt.session import ApplicationMessage
 
 from cloudcutter.modules.base import ModuleBase
 
-from .events import MqttMessageEvent
+from .events import (
+    MqttClientConnectedEvent,
+    MqttClientDisconnectedEvent,
+    MqttClientSubscriptionAddEvent,
+    MqttClientSubscriptionDelEvent,
+    MqttMessageEvent,
+)
 from .types import MessageHandler
 
 
@@ -28,6 +36,7 @@ class MqttModule(ModuleBase):
     _broker_thread: Thread | None = None
     _broker_loop: AbstractEventLoop | None = None
     _broker: Broker | None = None
+    _broker_clients: dict[str, IPv4Address] | None = None
     _client: MQTTClient | None = None
 
     def __init__(self):
@@ -94,7 +103,10 @@ class MqttModule(ModuleBase):
             },
         }
 
+        self._broker_clients = {}
         self._broker = Broker(config)
+        self._broker.logger.handle = self.broker_logger_handle
+        self._broker.logger.setLevel(DEBUG)
         self._broker_loop.run_until_complete(self._broker.start())
         self._broker_loop.run_forever()
 
@@ -155,3 +167,31 @@ class MqttModule(ModuleBase):
         if not self._client:
             return
         await self._client.publish(topic, message)
+
+    def broker_client_to_address(self, client_id: str) -> IPv4Address:
+        # noinspection PyProtectedMember
+        session, handler = self._broker._sessions[client_id]
+        handler: BrokerProtocolHandler
+        remote_address, remote_port = handler.writer.get_peer_info()
+        return IPv4Address(remote_address)
+
+    def broker_logger_handle(self, record: LogRecord) -> None:
+        msg = record.msg
+        if "Start messages handling" in msg:
+            client_id = msg.partition(" ")[0]
+            address = self.broker_client_to_address(client_id)
+            MqttClientConnectedEvent(client_id, address).broadcast()
+        elif "Disconnecting session" in msg:
+            client_id = msg.partition(" ")[0]
+            address = self.broker_client_to_address(client_id)
+            MqttClientDisconnectedEvent(client_id, address).broadcast()
+        elif "Begin broadcasting messages retained due to subscription" in msg:
+            topic = msg.partition("'")[2].partition("'")[0]
+            client_id = msg.partition("(client id=")[2][0:-1]
+            address = self.broker_client_to_address(client_id)
+            MqttClientSubscriptionAddEvent(client_id, address, topic).broadcast()
+        elif "Removing subscription on topic" in msg:
+            topic = msg.partition("'")[2].partition("'")[0]
+            client_id = msg.partition("(client id=")[2][0:-1]
+            address = self.broker_client_to_address(client_id)
+            MqttClientSubscriptionDelEvent(client_id, address, topic).broadcast()
