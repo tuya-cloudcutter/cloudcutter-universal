@@ -20,6 +20,7 @@ from sslpsk3.sslpsk3 import _ssl_set_psk_server_callback
 
 from cloudcutter.modules.base import ModuleBase
 
+from .events import HttpRequestEvent, HttpResponseEvent
 from .types import Request, RequestHandler
 
 SSLCertType = tuple[str, str] | Callable[[str], tuple[str, str]]
@@ -285,6 +286,7 @@ class HttpRequestHandler(BaseHTTPRequestHandler):
             body = None
 
         request = Request(method, path, host, query, headers, body)
+        HttpRequestEvent(request).broadcast()
 
         for model, func in self.http.handlers:
             if not re.match(model.method, method):
@@ -316,6 +318,8 @@ class HttpRequestHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
+
+        HttpResponseEvent(request, response).broadcast()
 
         if isinstance(response, int):
             self.send_response(response)

@@ -14,6 +14,7 @@ from amqtt.session import ApplicationMessage
 
 from cloudcutter.modules.base import ModuleBase
 
+from .events import MqttMessageEvent
 from .types import MessageHandler
 
 
@@ -117,6 +118,7 @@ class MqttModule(ModuleBase):
             for topic, func in self.handlers:
                 if not self._broker.matches(message.topic, topic):
                     continue
+                MqttMessageEvent(message).broadcast()
                 await func(message.topic, bytes(message.data))
 
     async def stop(self) -> None:

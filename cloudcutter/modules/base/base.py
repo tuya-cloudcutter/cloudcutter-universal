@@ -20,6 +20,8 @@ class ModuleBase(EventMixin):
         p = Popen(args=[*args], stdout=PIPE, stderr=PIPE)
         stdout, stderr = p.communicate()
         if p.wait() != 0:
-            raise RuntimeError(f"Command failed ({p.returncode}): {(stdout or stderr)}")
+            raise RuntimeError(
+                f"Command {args} failed ({p.returncode}): {(stdout or stderr)}"
+            )
         self.debug(f"Command {args} finished")
         return stdout

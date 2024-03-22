@@ -2,7 +2,6 @@
 
 from datetime import timedelta
 from ipaddress import IPv4Address, IPv4Network
-from logging import DEBUG, INFO
 from socket import AF_INET, IPPROTO_UDP, SO_BROADCAST, SOCK_DGRAM, SOL_SOCKET, socket
 
 from macaddress import MAC
@@ -95,11 +94,9 @@ class DhcpModule(ModuleBase):
         packet.options_clear()
         if message_type == DhcpMessageType.DISCOVER:
             action = "Offering"
-            level = INFO
             packet[DhcpOptionType.MESSAGE_TYPE] = DhcpMessageType.OFFER
         else:
             action = "ACK-ing"
-            level = DEBUG
             packet[DhcpOptionType.MESSAGE_TYPE] = DhcpMessageType.ACK
         packet[DhcpOptionType.SUBNET_MASK] = self.ipconfig.netmask
         packet[DhcpOptionType.ROUTER] = self.ipconfig.address
@@ -119,9 +116,7 @@ class DhcpModule(ModuleBase):
                 continue
             self.warning(f"Requested DHCP option {option} not populated")
 
-        self.log(
-            level, f"{action} {address} to {packet.client_mac_address} ({host_name})"
-        )
+        self.debug(f"{action} {address} to {packet.client_mac_address} ({host_name})")
         self.sock.sendto(packet.pack(), ("255.255.255.255", 68))
 
         if message_type != DhcpMessageType.DISCOVER:

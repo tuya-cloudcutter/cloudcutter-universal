@@ -42,7 +42,7 @@ class DnsModule(ModuleBase):
             self.warning(f"No DNS zone for {args[1]} {args[0]}")
             DnsQueryEvent(host=str(args[0]), type=args[1]).broadcast()
         elif "found zone for" in msg:
-            self.info(f"Answering DNS request {args[1]} {args[0]}")
+            self.debug(f"Answering DNS request {args[1]} {args[0]}")
             DnsQueryEvent(host=str(args[0]), type=args[1]).broadcast()
 
     def add_record(

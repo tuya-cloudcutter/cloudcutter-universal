@@ -239,7 +239,7 @@ class WifiWindows(WifiCommon):
         interface.ensure_wifi_ap()
         config_changed = False
 
-        self.debug("Checking Hosted Network configuration")
+        self.info("Configuring Hosted Network...")
         try:
             old_settings = wlanhosted.read_settings()
             if not old_settings.allowed or old_settings.not_configured:
@@ -290,6 +290,9 @@ class WifiWindows(WifiCommon):
             future = WifiAPStartedEvent.any()
             self.command("netsh", "wlan", "start", "hostednetwork")
             await future
+        else:
+            self.info(f"Hosted Network '{network.ssid}' is already running")
+            WifiAPStartedEvent().broadcast()
 
         await self.get_access_point_clients(interface)
 
