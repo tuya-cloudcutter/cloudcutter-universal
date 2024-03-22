@@ -14,6 +14,7 @@ from cloudcutter.modules.base import ModuleBase
 from cloudcutter.modules.http import Request, Response
 
 from ._data import TuyaServerData
+from ._events import TuyaDeviceActiveEvent, TuyaDeviceRequestEvent
 from ._types import Device
 from .device import DeviceCore
 
@@ -44,6 +45,7 @@ class GatewayCore(DeviceCore, TuyaServerData, ModuleBase):
 
         obj = json.loads(data)
         self.debug(f"HTTP request body: {obj}")
+        device.address = request.address
         return device, obj
 
     def _encrypt_http(
@@ -89,7 +91,7 @@ class GatewayCore(DeviceCore, TuyaServerData, ModuleBase):
     @httpm.post("/d.json", query=dict(a="tuya.device.active"))
     async def on_gateway_active(self, request: Request) -> Response:
         device, data = self._decrypt_http(request)
-        self.info(f"Activating device: uuid={device.uuid}, softVer={data['softVer']}")
+        self.debug(f"Activating device: uuid={device.uuid}, softVer={data['softVer']}")
         schema = [
             {
                 "mode": "rw",
@@ -100,6 +102,7 @@ class GatewayCore(DeviceCore, TuyaServerData, ModuleBase):
                 "type": "obj",
             }
         ]
+        TuyaDeviceActiveEvent(device, data).broadcast()
         return self._encrypt_http(
             device=device,
             result={
@@ -129,4 +132,5 @@ class GatewayCore(DeviceCore, TuyaServerData, ModuleBase):
             result = json.loads(text).get("result", None)
         else:
             self.warning(f"Missing schema response for {action}")
+        TuyaDeviceRequestEvent(device, action, data).broadcast()
         return self._encrypt_http(device, result=result)

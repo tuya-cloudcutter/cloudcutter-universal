@@ -259,6 +259,7 @@ class HttpRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(data.encode())
 
     def handle_request(self) -> None:
+        address = IPv4Address(self.client_address[0])
         method = self.command
         url = urlparse(self.path)
         path = url.path
@@ -285,7 +286,7 @@ class HttpRequestHandler(BaseHTTPRequestHandler):
         else:
             body = None
 
-        request = Request(method, path, host, query, headers, body)
+        request = Request(method, path, host, query, headers, body, address)
         HttpRequestEvent(request).broadcast()
 
         for model, func in self.http.handlers:

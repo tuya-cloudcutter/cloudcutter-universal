@@ -32,7 +32,7 @@ class DeviceCore(TuyaServerData, ModuleBase):
 
     def calc_psk_openssl(self, identity: bytes) -> bytes:
         identity = identity.decode()[2:]
-        self.info(f"OpenSSL connection: {identity}")
+        self.debug(f"OpenSSL connection: {identity}")
         if identity[0:2] == "01":
             return self.calc_psk_v1(bytes.fromhex(identity))
         if identity[0:2] == "02":

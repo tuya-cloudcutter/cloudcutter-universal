@@ -1,6 +1,7 @@
 #  Copyright (c) Kuba Szczodrzyński 2023-9-11.
 
 from dataclasses import dataclass
+from ipaddress import IPv4Address
 from pathlib import Path
 from typing import Awaitable, Callable
 
@@ -16,6 +17,7 @@ class Request:
     query: dict | None
     headers: dict | None
     body: HttpBody | None = None
+    address: IPv4Address | None = None
 
     def __post_init__(self) -> None:
         if self.method.upper() != self.method:

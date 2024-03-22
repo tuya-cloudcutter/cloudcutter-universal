@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from hashlib import sha256
+from ipaddress import IPv4Address
 from pathlib import Path
 
 
@@ -14,6 +15,7 @@ class Device:
     encryption_type: int = None
     aes_key: bytes = None
     firmware_path: Path = None
+    address: IPv4Address = None
 
     def __post_init__(self) -> None:
         self.psk_id = sha256(self.uuid.encode()).digest()

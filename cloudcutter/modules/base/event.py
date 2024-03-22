@@ -72,7 +72,7 @@ class EventMixin(FutureMixin, LoggerMixin):
         self.unregister_subscribers()
 
     async def event_loop(self, loop: AbstractEventLoop = None) -> None:
-        while True:
+        while self.should_run:
             self.in_event_queue = True
             event = self.queue.get()
             self.in_event_queue = False

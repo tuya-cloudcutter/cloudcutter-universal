@@ -14,6 +14,7 @@ from cloudcutter.modules import mqtt as mqttm
 from cloudcutter.modules.base import ModuleBase
 
 from ._data import TuyaServerData
+from ._events import TuyaDeviceDataEvent, TuyaDeviceLogEvent
 from ._types import Device
 from .device import DeviceCore
 
@@ -83,9 +84,10 @@ class MqttCore(DeviceCore, TuyaServerData, ModuleBase):
     @mqttm.subscribe("log/+/+")
     async def on_device_log(self, topic: str, message: bytes) -> None:
         uuid = topic.rpartition("/")[2]
-        self.info(f"Device log ({uuid}): {message.decode()}")
+        device = self.get_device(uuid=uuid)
+        TuyaDeviceLogEvent(device, message.decode()).broadcast()
 
     @mqttm.subscribe("smart/device/out/+")
     async def on_device_data(self, topic: str, message: bytes) -> None:
         device, data = self._decrypt_mqtt(topic, message)
-        self.debug(f"Device data ({device.uuid}): {data}")
+        TuyaDeviceDataEvent(device, data).broadcast()
