@@ -8,13 +8,14 @@ from socket import AF_INET, SOCK_DGRAM, socket
 
 from cloudcutter.core import Cloudcutter
 from cloudcutter.modules.base import ModuleBase
-from cloudcutter.types import NetworkInterface, WifiNetwork
+from cloudcutter.types import Ip4Config, NetworkInterface, WifiNetwork
 
 from ._events import (
     TuyaApCfgConnectedEvent,
     TuyaApCfgFinishedEvent,
     TuyaApCfgFoundEvent,
     TuyaApCfgReadyEvent,
+    TuyaApCfgSearchingEvent,
     TuyaApCfgSentEvent,
 )
 from ._types import ApCfgFrame
@@ -23,7 +24,7 @@ from ._types import ApCfgFrame
 class TuyaApCfg(ModuleBase):
     core: Cloudcutter
     interface: NetworkInterface
-    network: WifiNetwork | None
+    target_network: WifiNetwork | None
     payload: dict[str, str | bool | bytes | int] = None
     address_datagram: bytes = None
 
@@ -31,12 +32,12 @@ class TuyaApCfg(ModuleBase):
         self,
         core: Cloudcutter,
         interface: NetworkInterface,
-        network: WifiNetwork | None,
+        target_network: WifiNetwork | None,
     ):
         super().__init__()
         self.core = core
         self.interface = interface
-        self.network = network
+        self.target_network = target_network
 
     @staticmethod
     def generate_license() -> tuple[str, str, str]:
@@ -81,12 +82,12 @@ class TuyaApCfg(ModuleBase):
         psk: str,
     ) -> None:
         def get_addr(key: str, length: int) -> bytes:
-            address = int(data.get(key, "0"), 0)
+            address = int(str(data.get(key, 0)), 0)
             return address.to_bytes(byteorder="little", length=length)
 
-        address_finish = get_addr("address_finish", length=3).rstrip(b"\x00")
-        address_ssid = get_addr("address_ssid", length=3).rstrip(b"\x00")
-        address_passwd = get_addr("address_passwd", length=3).rstrip(b"\x00")
+        address_finish = get_addr("address_finish", length=4).rstrip(b"\x00")
+        address_ssid = get_addr("address_ssid", length=4).rstrip(b"\x00")
+        address_passwd = get_addr("address_passwd", length=4).rstrip(b"\x00")
         address_datagram = get_addr("address_datagram", length=4)
         address_ssid_padding = data.get("address_ssid_padding", 4)
 
@@ -134,14 +135,20 @@ class TuyaApCfg(ModuleBase):
     async def run(self) -> None:
         target_network: WifiNetwork | None = None
         while not target_network:
+            TuyaApCfgSearchingEvent().broadcast()
             networks = await self.core.wifi.scan_networks(self.interface)
             for network in networks:
-                if network.auth is not None:
-                    self.verbose(f"Skipping '{network.ssid}' because it's encrypted")
-                    continue
-                if re.match(r"^.+-[A-F0-9]{4}$", network.ssid) is None:
-                    self.verbose(f"Skipping '{network.ssid}' because it doesn't match")
-                    continue
+                if self.target_network:
+                    if network.ssid != self.target_network.ssid:
+                        self.verbose(f"Skipping '{network.ssid}' - network specified")
+                        continue
+                else:
+                    if network.auth is not None:
+                        self.verbose(f"Skipping '{network.ssid}' - WPA encrypted")
+                        continue
+                    if re.match(r"^.+-[A-F0-9]{4}$", network.ssid) is None:
+                        self.verbose(f"Skipping '{network.ssid}' - doesn't match")
+                        continue
                 target_network = network
                 break
             else:
@@ -170,20 +177,26 @@ class TuyaApCfg(ModuleBase):
             await asyncio.sleep(1)
         self.debug(f"Connected to '{station.ssid}'")
 
-        while not (ipconfig := await self.core.network.get_ip4config(self.interface)):
+        async def get_ipconfig() -> Ip4Config | None:
+            ipconfig_list = await self.core.network.get_ip4config(self.interface)
+            if not ipconfig_list:
+                return None
+            ipconfig_single = ipconfig_list[0]
+            if ipconfig_single.address.is_link_local:
+                return None
+            return ipconfig_single
+
+        while not (ipconfig := await get_ipconfig()):
             self.debug("Waiting for IP address...")
             await asyncio.sleep(1)
         self.debug(f"Got IP address '{ipconfig}'")
+        TuyaApCfgConnectedEvent(station, ipconfig).broadcast()
 
-        TuyaApCfgConnectedEvent(station, ipconfig[0]).broadcast()
-
-        target_address = next(ipconfig[0].network.hosts())
-        target_port = 6669
-
-        while not (ping_rtt := await self.core.network.ping(target_address)):
+        while not (ping_rtt := await self.core.network.ping(ipconfig.first)):
+            ipconfig = await get_ipconfig()
             self.debug("Waiting for ping...")
             await asyncio.sleep(1)
-        TuyaApCfgReadyEvent(target_network, target_address, ping_rtt).broadcast()
+        TuyaApCfgReadyEvent(target_network, ipconfig.first, ping_rtt).broadcast()
 
         frame = ApCfgFrame(payload=self.encode_payload())
         datagram = frame.pack()
@@ -194,8 +207,11 @@ class TuyaApCfg(ModuleBase):
             datagram += self.address_datagram * int(pad_length / 4)
             assert len(datagram) == 256
 
-        while await self.core.network.ping(target_address):
+        while await self.core.network.ping(ipconfig.first):
+            ipconfig = await get_ipconfig()
             sock = socket(AF_INET, SOCK_DGRAM)
+            target_address = ipconfig.first
+            target_port = 6669
             for i in range(5):
                 self.debug(
                     f"Sending ApCfg datagram #{i + 1} to {target_address}:{target_port}"
@@ -210,4 +226,4 @@ class TuyaApCfg(ModuleBase):
         ) and station.ssid == target_network.ssid:
             self.debug("Waiting for disconnection...")
             await asyncio.sleep(1)
-        TuyaApCfgFinishedEvent(target_network, target_address).broadcast()
+        TuyaApCfgFinishedEvent(target_network).broadcast()

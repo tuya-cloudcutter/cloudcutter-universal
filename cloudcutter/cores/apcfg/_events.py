@@ -8,6 +8,11 @@ from cloudcutter.types import Ip4Config, WifiNetwork
 
 
 @dataclass
+class TuyaApCfgSearchingEvent(BaseEvent):
+    pass
+
+
+@dataclass
 class TuyaApCfgFoundEvent(BaseEvent):
     network: WifiNetwork
 
@@ -35,4 +40,3 @@ class TuyaApCfgSentEvent(BaseEvent):
 @dataclass
 class TuyaApCfgFinishedEvent(BaseEvent):
     network: WifiNetwork
-    address: IPv4Address

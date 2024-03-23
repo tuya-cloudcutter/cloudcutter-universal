@@ -81,7 +81,7 @@ class Cloudcutter(ModuleBase):
         self.tuya_ap_cfg = ap_cfg = TuyaApCfg(
             core=self,
             interface=interface,
-            network=event.network,
+            target_network=event.target_network,
         )
         ap_cfg.set_wifi_network(network=event.network)
         await self.tuya_ap_cfg.start()
@@ -101,7 +101,7 @@ class Cloudcutter(ModuleBase):
         self.tuya_ap_cfg = ap_cfg = TuyaApCfg(
             core=self,
             interface=interface,
-            network=event.network,
+            target_network=event.target_network,
         )
         ap_cfg.set_classic_profile(
             data=event.profile,

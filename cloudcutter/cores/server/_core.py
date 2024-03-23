@@ -43,7 +43,7 @@ class TuyaServer(
         uuid: str,
         auth_key: str,
         psk: str,
-        firmware_path: Path,
+        firmware_path: Path = None,
     ) -> None:
         TuyaServer.DEVICES.append(
             Device(

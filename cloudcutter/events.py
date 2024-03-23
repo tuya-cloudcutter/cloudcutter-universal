@@ -14,12 +14,13 @@ class CoreTuyaServerStartCommand(BaseEvent):
 @dataclass
 class CoreTuyaApCfgConnectCommand(BaseEvent):
     network: WifiNetwork
+    target_network: WifiNetwork | None = None
 
 
 @dataclass
 class CoreTuyaApCfgExploitCommand(BaseEvent):
-    network: WifiNetwork | None
     profile: dict[str, str | int]
     uuid: str
     auth_key: str
     psk: str
+    target_network: WifiNetwork | None = None

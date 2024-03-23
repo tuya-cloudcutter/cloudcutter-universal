@@ -43,3 +43,7 @@ class Ip4Config:
     @property
     def network(self) -> IPv4Network:
         return IPv4Network(f"{self.address}/{self.netmask}", strict=False)
+
+    @property
+    def first(self) -> IPv4Address:
+        return next(self.network.hosts())
