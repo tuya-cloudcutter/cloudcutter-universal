@@ -4,6 +4,11 @@ from logging import DEBUG
 
 from ltchiptool.util.logging import LoggingHandler
 
+from .events import (
+    CoreTuyaApCfgConnectCommand,
+    CoreTuyaApCfgExploitCommand,
+    CoreTuyaServerStartCommand,
+)
 from .modules.base import BaseEvent, ModuleBase, subscribe
 from .modules.dhcp import DhcpModule
 from .modules.dns import DnsModule
@@ -11,6 +16,9 @@ from .modules.http import HttpModule
 from .modules.mqtt import MqttModule
 from .modules.network import NetworkModule
 from .modules.wifi import WifiModule
+from .types import NetworkInterface, WifiNetwork
+
+CLOUDCUTTER_FLASH = WifiNetwork(ssid="cloudcutterflash", password=b"abcdabcd")
 
 
 class Cloudcutter(ModuleBase):
@@ -20,6 +28,9 @@ class Cloudcutter(ModuleBase):
     dns: DnsModule
     http: HttpModule
     mqtt: MqttModule
+
+    tuya_server: ModuleBase | None = None
+    tuya_ap_cfg: ModuleBase | None = None
 
     def __init__(self):
         super().__init__()
@@ -45,4 +56,64 @@ class Cloudcutter(ModuleBase):
 
     @subscribe(BaseEvent)
     async def on_event(self, event) -> None:
-        self.debug(f"EVENT: {event}")
+        self.info(f"EVENT: {event}")
+
+    @subscribe(CoreTuyaServerStartCommand)
+    async def on_tuya_server_start_command(
+        self,
+        event: CoreTuyaServerStartCommand,
+    ) -> None:
+        from .cores.server import TuyaServer
+
+        interface = await self.network.get_interface(NetworkInterface.Type.WIRELESS_AP)
+        self.tuya_server = TuyaServer(
+            core=self,
+            interface=interface,
+            network=event.network,
+        )
+        await self.tuya_server.start()
+
+    @subscribe(CoreTuyaApCfgConnectCommand)
+    async def on_tuya_ap_cfg_connect_command(
+        self,
+        event: CoreTuyaApCfgConnectCommand,
+    ) -> None:
+        if self.tuya_ap_cfg:
+            await self.tuya_ap_cfg.stop()
+            self.tuya_ap_cfg = None
+
+        from .cores.apcfg import TuyaApCfg
+
+        interface = await self.network.get_interface(NetworkInterface.Type.WIRELESS_STA)
+        self.tuya_ap_cfg = ap_cfg = TuyaApCfg(
+            core=self,
+            interface=interface,
+            network=event.network,
+        )
+        ap_cfg.set_wifi_network(network=event.network)
+        await self.tuya_ap_cfg.start()
+
+    @subscribe(CoreTuyaApCfgExploitCommand)
+    async def on_tuya_ap_cfg_exploit_command(
+        self,
+        event: CoreTuyaApCfgExploitCommand,
+    ) -> None:
+        if self.tuya_ap_cfg:
+            await self.tuya_ap_cfg.stop()
+            self.tuya_ap_cfg = None
+
+        from .cores.apcfg import TuyaApCfg
+
+        interface = await self.network.get_interface(NetworkInterface.Type.WIRELESS_STA)
+        self.tuya_ap_cfg = ap_cfg = TuyaApCfg(
+            core=self,
+            interface=interface,
+            network=event.network,
+        )
+        ap_cfg.set_classic_profile(
+            data=event.profile,
+            uuid=event.uuid,
+            auth_key=event.auth_key,
+            psk_key=event.psk_key,
+        )
+        await self.tuya_ap_cfg.start()
