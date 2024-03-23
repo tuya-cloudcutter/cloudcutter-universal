@@ -13,24 +13,33 @@ class DnsCore(TuyaServerData, ModuleBase):
     @httpm.post("/v2/url_config", host=r"h\d\.iot-dns\.com")
     async def on_url_config(self, request: Request) -> Response:
         TuyaUrlConfigEvent(request.address).broadcast()
+        address = str(self.ipconfig.address)
         return {
-            "caArr": [],
+            "caArr": None,
             "httpUrl": {
-                "addr": f"http://{self.ipconfig.address}/d.json",
-                "ips": [self.ipconfig.address],
+                "addr": f"http://{address}/d.json",
+                "ips": [address],
+            },
+            "httpsUrl": {
+                "addr": "",
+                "ips": [""],
             },
             "httpsPSKUrl": {
-                "addr": f"https://{self.ipconfig.address}/d.json",
-                "ips": [self.ipconfig.address],
+                "addr": "",
+                "ips": [""],
             },
             "mqttUrl": {
-                "addr": f"{self.ipconfig.address}:1883",
-                "ips": [self.ipconfig.address],
+                "addr": f"{address}:1883",
+                "ips": [address],
             },
-            # "mqttsPSKUrl": {
-            #     "addr": f"{self.dns_host}:8886",
-            #     "ips": [self.ipconfig.address],
-            # },
+            "mqttsUrl": {
+                "addr": "",
+                "ips": [""],
+            },
+            "mqttsPSKUrl": {
+                "addr": "",
+                "ips": [""],
+            },
             "ttl": 600,
         }
 
