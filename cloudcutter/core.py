@@ -1,9 +1,5 @@
 #  Copyright (c) Kuba Szczodrzyński 2024-3-22.
 
-from logging import DEBUG
-
-from ltchiptool.util.logging import LoggingHandler
-
 from .events import (
     CoreTuyaApCfgConnectCommand,
     CoreTuyaApCfgExploitCommand,
@@ -40,9 +36,6 @@ class Cloudcutter(ModuleBase):
         self.dns = DnsModule()
         self.http = HttpModule()
         self.mqtt = MqttModule()
-
-        logger = LoggingHandler.get()
-        logger.level = DEBUG
 
     async def run(self) -> None:
         await self.network.start()
@@ -114,6 +107,6 @@ class Cloudcutter(ModuleBase):
             data=event.profile,
             uuid=event.uuid,
             auth_key=event.auth_key,
-            psk_key=event.psk_key,
+            psk=event.psk,
         )
         await self.tuya_ap_cfg.start()

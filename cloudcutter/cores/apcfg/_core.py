@@ -47,8 +47,8 @@ class TuyaApCfg(ModuleBase):
 
         uuid = generate_random_ascii_string(12)
         auth_key = generate_random_ascii_string(16)
-        psk_key = generate_random_ascii_string(32)
-        return uuid, auth_key, psk_key
+        psk = generate_random_ascii_string(32)
+        return uuid, auth_key, psk
 
     def set_wifi_network(
         self,
@@ -78,7 +78,7 @@ class TuyaApCfg(ModuleBase):
         data: dict[str, str | int],
         uuid: str,
         auth_key: str,
-        psk_key: str,
+        psk: str,
     ) -> None:
         def get_addr(key: str, length: int) -> bytes:
             address = int(data.get(key, "0"), 0)
@@ -93,7 +93,7 @@ class TuyaApCfg(ModuleBase):
         payload = {
             "auzkey": auth_key,
             "uuid": uuid,
-            "pskKey": psk_key,
+            "pskKey": psk,
             "prod_test": False,
             "ap_ssid": "A",
             "ssid": "A",

@@ -9,10 +9,11 @@ from ._types import Device
 
 
 class TuyaServerData:
+    DEVICES: list[Device] = []
+
     core: Cloudcutter
     interface: NetworkInterface
     network: WifiNetwork
-    dev_db: list[Device]
     schema_path: Path
 
     ipconfig: Ip4Config = None

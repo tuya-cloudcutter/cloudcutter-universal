@@ -22,4 +22,4 @@ class CoreTuyaApCfgExploitCommand(BaseEvent):
     profile: dict[str, str | int]
     uuid: str
     auth_key: str
-    psk_key: str
+    psk: str

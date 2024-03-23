@@ -17,7 +17,7 @@ class DeviceCore(TuyaServerData, ModuleBase):
         if request:
             uuid = request.query.get("uuid", None) or request.query.get("devid", None)
         device = None
-        for device in self.dev_db:
+        for device in self.DEVICES:
             if device.uuid == uuid or device.psk_id == psk_id:
                 break
         else:
