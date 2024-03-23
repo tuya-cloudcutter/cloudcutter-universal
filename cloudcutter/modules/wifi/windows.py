@@ -123,6 +123,9 @@ class WifiWindows(WifiCommon):
                     )
                 WifiScanCompleteEvent(networks=networks).broadcast()
 
+            case ACM.wlan_notification_acm_network_available.name:
+                pass
+
             case ACM.wlan_notification_acm_connection_complete.name:
                 data: ACMConnectionNotificationData
                 WifiConnectedEvent(ssid=data.ssid.decode()).broadcast()

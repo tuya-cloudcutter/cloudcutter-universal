@@ -308,8 +308,12 @@ class HttpRequestHandler(BaseHTTPRequestHandler):
                 ):
                     continue
             # execute the request handler to get a response
-            coro = func(request)
-            response = asyncio.new_event_loop().run_until_complete(coro)
+            try:
+                coro = func(request)
+                response = asyncio.new_event_loop().run_until_complete(coro)
+            except Exception as e:
+                self.http.exception("Request handler raised exception", exc_info=e)
+                response = 500
             # finish if a response was returned
             if response is not None:
                 break

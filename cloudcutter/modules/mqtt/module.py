@@ -131,7 +131,10 @@ class MqttModule(ModuleBase):
                 if not self._broker.matches(message.topic, topic):
                     continue
                 MqttMessageEvent(message).broadcast()
-                await func(message.topic, bytes(message.data))
+                try:
+                    await func(message.topic, bytes(message.data))
+                except Exception as e:
+                    self.exception("Message handler raised exception", exc_info=e)
 
     async def stop(self) -> None:
         await super().stop()
