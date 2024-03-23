@@ -30,13 +30,20 @@ class TuyaServer(
         self,
         core: Cloudcutter,
         interface: NetworkInterface,
-        dev_db: list[Device],
+        network: WifiNetwork,
+        dev_db: list[Device] = None,
     ):
         super().__init__()
         self.core = core
         self.interface = interface
+        self.network = network
+        if dev_db is None:
+            dev_db = []
         self.dev_db = dev_db
         self.schema_path = Path(__file__).parents[3] / "schema"
+
+    def add_device(self, device: Device) -> None:
+        self.dev_db.append(device)
 
     async def run(self) -> None:
         ip_address = IPv4Address("10.42.42.1")
@@ -53,7 +60,7 @@ class TuyaServer(
 
         await self.core.wifi.start_access_point(
             interface=self.interface,
-            network=WifiNetwork(ssid="cloudcutterflash", password=b"abcdabcd"),
+            network=self.network,
         )
 
         if self.ipconfig not in (await self.core.network.get_ip4config(self.interface)):
@@ -108,6 +115,14 @@ class TuyaServer(
 
     async def cleanup(self) -> None:
         await super().cleanup()
+
+        self.core.mqtt.clear_handlers()
+        self.core.http.clear_handlers()
+        self.core.http.clear_ssl_psk()
+        self.core.http.clear_ssl_certs()
+        self.core.dns.clear_records()
+        await self.core.wifi.stop_access_point(self.interface)
+
         await self.core.mqtt.stop()
         await self.core.http.stop()
         await self.core.dns.stop()

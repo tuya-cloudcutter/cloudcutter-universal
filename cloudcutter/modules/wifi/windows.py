@@ -170,8 +170,6 @@ class WifiWindows(WifiCommon):
     ) -> None:
         interface.ensure_wifi_sta()
         iface = iface_by_guid(interface.name)
-        if isinstance(network.password, str):
-            network.password = network.password.encode("utf-8")
         xml = wlanmisc.make_xml_profile(network)
         if await self.get_station_state(interface):
             await self.stop_station()

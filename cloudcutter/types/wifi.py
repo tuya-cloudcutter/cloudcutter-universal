@@ -7,7 +7,7 @@ from enum import Enum, auto
 @dataclass
 class WifiNetwork:
     ssid: str
-    password: bytes | str | None
+    password: bytes | None
     auth: "Auth" = None
     cipher: "Cipher" = None
     rssi: int = None

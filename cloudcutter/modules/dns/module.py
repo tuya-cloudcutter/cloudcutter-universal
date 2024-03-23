@@ -54,3 +54,6 @@ class DnsModule(ModuleBase):
         if isinstance(answer, IPv4Address):
             answer = str(answer)
         self.dns.add_record(Zone(host, type, answer))
+
+    def clear_records(self) -> None:
+        self.dns.set_records(zones=[])

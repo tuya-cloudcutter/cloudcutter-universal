@@ -3,6 +3,7 @@
 from ipaddress import IPv4Address
 
 import ifaddr
+from icmplib import async_ping
 
 from cloudcutter.modules.base import ModuleBase, module_thread
 from cloudcutter.types import Ip4Config, NetworkInterface
@@ -70,3 +71,17 @@ class NetworkCommon(ModuleBase):
             return next(i for i in interfaces if i.type == interface_type)
         except StopIteration:
             return None
+
+    async def ping(
+        self,
+        address: IPv4Address,
+        count: int = 4,
+        interval: float = 0.2,
+        timeout: float = 2.0,
+    ) -> float | None:
+        host = await async_ping(str(address), count, interval, timeout)
+        if not host.is_alive:
+            self.debug(f"Host {address} is dead")
+            return None
+        self.debug(f"Host {address} is alive, RTT {host.avg_rtt} ms")
+        return host.avg_rtt

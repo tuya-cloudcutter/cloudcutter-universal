@@ -11,6 +11,7 @@ from .utils import T, make_attr_dict
 @dataclass
 class BaseEvent:
     def __await__(self):
+        setattr(self, "__used__", True)
         future = FutureMixin.make_future()
         make_attr_dict(type(self), "__subscribers__")[future] = self
         yield from future
@@ -22,6 +23,7 @@ class BaseEvent:
         return future
 
     def broadcast(self) -> None:
+        setattr(self, "__used__", True)
         subs: dict[Any | Future, type | object] = dict()
         # find subscribers of all superclasses
         cls = type(self)
@@ -50,6 +52,10 @@ class BaseEvent:
             for future in futures:
                 getattr(cls, "__subscribers__", {}).pop(future, None)
             cls = cls.__base__
+
+    def __del__(self):
+        if not hasattr(self, "__used__"):
+            raise RuntimeError(f"Event '{self}' never broadcast nor awaited")
 
 
 @dataclass

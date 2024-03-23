@@ -166,6 +166,9 @@ class MqttModule(ModuleBase):
                 for topic in getattr(func, "__topics__"):
                     await self.add_handler(bound_func, topic)
 
+    def clear_handlers(self) -> None:
+        self.handlers = []
+
     async def publish(self, topic: str, message: bytes) -> None:
         if not self._client:
             return

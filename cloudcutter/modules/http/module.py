@@ -211,11 +211,20 @@ class HttpModule(ModuleBase):
                 for model in getattr(func, "__requests__"):
                     self.handlers.append((model, bound_func))
 
+    def clear_handlers(self) -> None:
+        self.handlers = []
+
     def add_ssl_cert(self, cert: str, key: str, sni: str = ".*") -> None:
         self.ssl_cert_db.append((sni, (cert, key)))
 
+    def clear_ssl_certs(self) -> None:
+        self.ssl_cert_db = []
+
     def add_ssl_psk(self, psk: SSLPSKType, identity: bytes = b".*") -> None:
         self.ssl_psk_db.append((identity, psk))
+
+    def clear_ssl_psk(self) -> None:
+        self.ssl_psk_db = []
 
 
 # noinspection PyPep8Naming
