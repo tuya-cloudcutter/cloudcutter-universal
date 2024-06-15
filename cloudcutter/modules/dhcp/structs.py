@@ -6,7 +6,7 @@ from ipaddress import IPv4Address
 from random import randint
 from typing import Any
 
-from datastruct import DataStruct, Endianness, datastruct
+from datastruct import NETWORK, DataStruct, datastruct
 from datastruct.adapters.network import ipv4_field, mac_field
 from datastruct.adapters.time import timedelta_field
 from datastruct.fields import (
@@ -35,7 +35,7 @@ class DhcpClientIdentifier(DataStruct):
 
 
 @dataclass
-@datastruct(endianness=Endianness.NETWORK, padding_pattern=b"\x00")
+@datastruct(endianness=NETWORK, padding_pattern=b"\x00")
 class DhcpOption(DataStruct):
     option: DhcpOptionType = field("B")
     length: int = cond(lambda ctx: ctx.option != 255, if_not=0)(
@@ -74,7 +74,7 @@ class DhcpOption(DataStruct):
 
 
 @dataclass
-@datastruct(endianness=Endianness.NETWORK, padding_pattern=b"\x00")
+@datastruct(endianness=NETWORK, padding_pattern=b"\x00")
 class DhcpPacket(DataStruct):
     packet_type: DhcpPacketType = field("B")
     hardware_type: int = const(1)(field("B"))
