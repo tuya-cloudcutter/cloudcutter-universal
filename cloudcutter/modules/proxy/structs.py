@@ -98,10 +98,10 @@ class TlsExtension(DataStruct):
             length=lambda ctx: ctx.names_length,
         )(subfield())
 
-    type: Type = field("H")
+    type: int = field("H")
     length: int = field("H")
-    data: bytes | ServerName = switch(lambda ctx: ctx.length and ctx.type)(
-        SERVER_NAME=(ServerName, subfield()),
+    data: bytes | ServerName = switch(lambda ctx: bool(ctx.length) and ctx.type)(
+        _0=(ServerName, subfield()),
         default=(bytes, field(lambda ctx: ctx.length)),
     )
 

@@ -213,7 +213,11 @@ class ProxyHandler(BaseRequestHandler):
         proxy_path = (
             f"{self.client_address[0]}:{self.client_address[1]} "
             f"-> {source.host}:{source.port} "
-            f"-> {target.host}:{target.port}"
+            + (
+                f"-> ({target.http_proxy[0]}:{target.http_proxy[1]})"
+                if target.http_proxy
+                else f"-> {target.host}:{target.port}"
+            )
         )
         self.proxy.info(f"Proxy {source.protocol.name}: {proxy_path}")
 
