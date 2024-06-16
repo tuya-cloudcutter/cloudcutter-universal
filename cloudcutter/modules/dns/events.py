@@ -2,10 +2,13 @@
 
 from dataclasses import dataclass
 
+from dnslib import RR
+
 from cloudcutter.modules.base import BaseEvent
 
 
 @dataclass
 class DnsQueryEvent(BaseEvent):
-    host: str
-    type: str
+    qname: str
+    qtype: str
+    rdata: list[str | RR]

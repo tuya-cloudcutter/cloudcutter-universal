@@ -19,6 +19,7 @@ from urllib.parse import parse_qs, urlparse
 from sslpsk3.sslpsk3 import _ssl_set_psk_server_callback
 
 from cloudcutter.modules.base import ModuleBase
+from cloudcutter.utils import matches
 
 from .events import HttpRequestEvent, HttpResponseEvent
 from .types import Request, RequestHandler
@@ -151,7 +152,7 @@ class HttpModule(ModuleBase):
     def _ssl_sni_callback(self, sock: SSLSocket, sni: str, ctx: SSLContext) -> None:
         sni = sni or ""
         for pattern, value in self.ssl_cert_db:
-            if not re.match(pattern, sni):
+            if not matches(pattern, sni):
                 continue
             if callable(value):
                 value = value(sni)
@@ -168,7 +169,7 @@ class HttpModule(ModuleBase):
     def _ssl_psk_callback(self, identity: bytes) -> bytes:
         self.verbose(f"Connection with PSK identity {identity.hex()}")
         for pattern, psk in self.ssl_psk_db:
-            if not re.match(pattern, identity):
+            if not matches(pattern, identity):
                 continue
             if callable(psk):
                 try:
@@ -299,20 +300,20 @@ class HttpRequestHandler(BaseHTTPRequestHandler):
         HttpRequestEvent(request).broadcast()
 
         for model, func in self.http.handlers:
-            if not re.match(model.method, method):
+            if not matches(model.method, method):
                 continue
-            if not re.match(model.path, path):
+            if not matches(model.path, path):
                 continue
-            if model.host and not re.match(model.host, host):
+            if model.host and not matches(model.host, host):
                 continue
             if model.query:
                 if not all(
-                    k in query and re.match(v, query[k]) for k, v in model.query.items()
+                    k in query and matches(v, query[k]) for k, v in model.query.items()
                 ):
                     continue
             if model.headers:
                 if not all(
-                    k in headers and re.match(v, headers[k])
+                    k in headers and matches(v, headers[k])
                     for k, v in model.headers.items()
                 ):
                     continue

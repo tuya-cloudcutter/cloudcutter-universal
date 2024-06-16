@@ -1,11 +1,12 @@
 #  Copyright (c) Kuba Szczodrzyński 2024-6-15.
 
-import re
 from abc import ABC
 from dataclasses import dataclass
 from enum import Enum, auto
 from socket import socket
 from typing import IO
+
+from cloudcutter.utils import matches
 
 
 class SocketIO(IO[bytes], ABC):
@@ -77,7 +78,7 @@ class ProxySource:
             return False
         if self.protocol != ProxyProtocol.ANY and self.protocol != other.protocol:
             return False
-        return bool(re.match(self.host, other.host))
+        return bool(matches(self.host, other.host))
 
 
 @dataclass
